@@ -1,8 +1,10 @@
-
 # ps
 Call any available system command from python
 
 To install:	```pip install ps```
+
+Note: The package is aspires to be platform-independent but has 
+only been tested with unix-flavored systems.
 
 # Quick Start
 

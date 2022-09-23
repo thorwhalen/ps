@@ -206,13 +206,13 @@ def str_to_identifier(string: str) -> Identifier:
     """
 
     def _replace_all_non_alphnumerics_with_underscore(string: str):
-        return re.sub('\W', '_', string)
+        return re.sub(r'\W', '_', string)
 
     def _first_character_is_a_digit(string: str):
         if len(string) == 0:
             raise ValueError('string was empty')
         first_character, *_ = string
-        return bool(re.match('\d', first_character))
+        return bool(re.match(r'\d', first_character))
 
     def _prefix_with_underscore_if_starts_with_digit(string: str):
         if _first_character_is_a_digit(string):
