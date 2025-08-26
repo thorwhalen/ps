@@ -1,4 +1,21 @@
-"""Misc tools for commands"""
+"""
+Misc tools for commands.
+
+Utilities in this module include a small helper to run shell snippets from a
+specified directory while keeping strict error propagation. See
+`run_commands_in_dir` for a full, documented example — a short demo is shown
+below.
+
+Short demo
+----------
+
+>>> from ps.misc import run_commands_in_dir
+>>> cp = run_commands_in_dir('.', "pwd; python -c 'print(40+2)'")
+>>> cp.returncode
+0
+>>> '42' in cp.stdout
+True
+"""
 
 from __future__ import annotations
 

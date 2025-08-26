@@ -239,6 +239,34 @@ So now we have:
     >>> isinstance(output, str)  # it's already decoded for us!
     True
 
+# Misc tools 
+
+## ps.misc.run_commands_in_dir
+
+A small utility to run one or more shell commands as if they were executed
+from a specific directory. The function spawns a fresh shell, prefixes the
+script with `set -e -o pipefail` so failures abort early, and returns a
+`subprocess.CompletedProcess` with `stdout`, `stderr`, and `returncode`.
+
+Example:
+
+```python
+from ps.misc import run_commands_in_dir
+
+cp = run_commands_in_dir('.', "pwd; python -c 'print(40+2)'")
+assert cp.returncode == 0
+assert '42' in cp.stdout
+```
+
+Notes:
+- Raises `subprocess.CalledProcessError` if any command fails (check the
+    exception for `.stdout` and `.stderr`).
+- You can provide `timeout`, `env`, and `shell_path` to customize behavior.
+
+
+
+
+
 # Notes
 
 ## Auto docs
