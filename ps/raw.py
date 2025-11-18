@@ -10,5 +10,3 @@ from ps.base import Command as _Command
 
 for _id, _command in _get_command_for_id().items():
     globals()[_id] = _Command(_command)
-
-

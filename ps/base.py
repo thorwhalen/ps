@@ -18,15 +18,15 @@ from dataclasses import dataclass
 
 
 def mk_raw_command_func(command: str):
-    def run_command(command_args_str: str = ''):
-        return run_command(command_args_str + ' ' + command)
+    def run_command(command_args_str: str = ""):
+        return run_command(command_args_str + " " + command)
 
     return run_command
 
 
 def join_if_not_string(iterable: Iterable) -> str:
     if not isinstance(iterable, str):
-        iterable = ' '.join(iterable)
+        iterable = " ".join(iterable)
     return iterable
 
 
@@ -46,16 +46,16 @@ def first_valid_result(
 
 
 def man_1_page_str(command):
-    return str_if_bytes(run(f'man 1 {command}'))
+    return str_if_bytes(run(f"man 1 {command}"))
 
 
 def dash_dash_help_str(command):
-    return str_if_bytes(run(f'{command} --help'))
+    return str_if_bytes(run(f"{command} --help"))
 
 
 get_doc_options = {
-    'man_1_page_str': man_1_page_str,
-    'dash_dash_help_str': dash_dash_help_str,
+    "man_1_page_str": man_1_page_str,
+    "dash_dash_help_str": dash_dash_help_str,
 }
 
 
@@ -115,15 +115,15 @@ class Command:
         self.run = run
         self.get_doc = get_doc
 
-    def __call__(self, args: Iterable = ''):
+    def __call__(self, args: Iterable = ""):
         return self.raw_call(args)
 
-    def raw_call(self, args: Iterable = ''):
+    def raw_call(self, args: Iterable = ""):
         return self.run(self.instruction_str(args))
 
     def instruction_str(self, args: Iterable):
         args_str = join_if_not_string(args)
-        return f'{self.command} {args_str}'
+        return f"{self.command} {args_str}"
 
     @property
     def __doc__(self):
@@ -135,10 +135,10 @@ class Command:
         if isinstance(get_doc, str):
             if get_doc not in get_doc_options:
                 raise ValueError(
-                    f'get_doc not found. Specify a function or one of {get_doc_options}'
+                    f"get_doc not found. Specify a function or one of {get_doc_options}"
                 )
             get_doc = get_doc_options[get_doc]
-        return get_doc(self.command) or ''
+        return get_doc(self.command) or ""
 
     def help(self, get_doc=None):
         return print(self.help_str(get_doc))
@@ -155,7 +155,7 @@ def _ensure_identifier_keyed_dict(
         d = {x: x for x in commands}
     non_identifier_keys = list(filter(lambda x: not x.isidentifier(), d))
     if non_identifier_keys:
-        raise ValueError(f'These were not identifiers: {non_identifier_keys}')
+        raise ValueError(f"These were not identifiers: {non_identifier_keys}")
     return d
 
 
@@ -230,11 +230,11 @@ class Commands(Mapping):
     you can specify a ``factory`` that will do this for you automatically.
 
     The default ``factory`` is ``Command``, which  has a ``run``
-    argument that defines how an instruction should be run. 
-    The default of ``run`` is ``run_command``, which conveniently has an ``egress`` 
-    argument where you can specify a function to call on the output. 
-    
-    So one solution to define a ``Commands`` instance that will (attempt to) output 
+    argument that defines how an instruction should be run.
+    The default of ``run`` is ``run_command``, which conveniently has an ``egress``
+    argument where you can specify a function to call on the output.
+
+    So one solution to define a ``Commands`` instance that will (attempt to) output
     strings systematically is to do this:
 
     >>> from functools import partial

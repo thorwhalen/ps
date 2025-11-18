@@ -113,14 +113,14 @@ def run(
         return egress(output)
 
 
-def str_if_bytes(x, encoding='utf-8', errors='strict'):
+def str_if_bytes(x, encoding="utf-8", errors="strict"):
     if isinstance(x, bytes):
         x = x.decode(encoding, errors)
     return x
 
 
 def print_text_egress(
-    output, *, encoding='utf-8', errors='strict', end='\n', file=None
+    output, *, encoding="utf-8", errors="strict", end="\n", file=None
 ):
     """
     Decodes output and prints it (with control on decoder and printing).
@@ -146,7 +146,7 @@ def is_executable_according_to_which(string: str):
     See: https://linuxize.com/post/linux-which-command
 
     """
-    return bool(simple_run_command(f'which {string}', strip_output=True))
+    return bool(simple_run_command(f"which {string}", strip_output=True))
 
 
 # TODO: Generalize to DOS
@@ -171,11 +171,11 @@ def local_commands(verbose=False):
         dirpaths = set(filter(None, dirpaths))
         existing_dirpaths = set(filter(os.path.isdir, dirpaths))
         if non_existing_dirs := (set(dirpaths) - existing_dirpaths):
-            _non_existing_dirs = '\n\t' + '\n\t'.join(non_existing_dirs)
+            _non_existing_dirs = "\n\t" + "\n\t".join(non_existing_dirs)
             if verbose:
                 warn(
-                    'These paths were in your PATH environment variable, but were not '
-                    f'found as directories:{_non_existing_dirs}'
+                    "These paths were in your PATH environment variable, but were not "
+                    f"found as directories:{_non_existing_dirs}"
                 )
         return sorted(existing_dirpaths)
 
@@ -185,7 +185,7 @@ def local_commands(verbose=False):
             if is_executable_file(filepath):
                 yield filename
 
-    dirpaths = os.environ.get('PATH', '').split(':')
+    dirpaths = os.environ.get("PATH", "").split(":")
     dirpaths = _keep_only_existing_paths(dirpaths, verbose)
 
     def _commands():
@@ -206,17 +206,17 @@ def str_to_identifier(string: str) -> Identifier:
     """
 
     def _replace_all_non_alphnumerics_with_underscore(string: str):
-        return re.sub(r'\W', '_', string)
+        return re.sub(r"\W", "_", string)
 
     def _first_character_is_a_digit(string: str):
         if len(string) == 0:
-            raise ValueError('string was empty')
+            raise ValueError("string was empty")
         first_character, *_ = string
-        return bool(re.match(r'\d', first_character))
+        return bool(re.match(r"\d", first_character))
 
     def _prefix_with_underscore_if_starts_with_digit(string: str):
         if _first_character_is_a_digit(string):
-            return '_' + string
+            return "_" + string
         else:
             return string
 
@@ -249,7 +249,7 @@ def identifier_mapping(
     str_of_id = {str_to_id(string): string for string in strings}
     if len(str_of_id) != len(strings):
         duplicates = _gather_duplicates(strings, str_to_id)
-        raise ValueError(f'Some commands mapped to the same identifier: {duplicates}')
+        raise ValueError(f"Some commands mapped to the same identifier: {duplicates}")
     return str_of_id
 
 
