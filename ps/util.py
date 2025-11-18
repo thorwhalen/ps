@@ -6,12 +6,13 @@ from shlex import split as shlex_split
 from subprocess import PIPE, Popen
 from itertools import chain
 from collections import defaultdict
-from typing import Iterable, Dict, Union, Callable
+from typing import Dict, Union
+from collections.abc import Iterable, Callable
 from warnings import warn
 from functools import partial
 
 Identifier = str  # but satisfying str.isidentifier
-IdentifierCommandDict = Dict[Identifier, str]
+IdentifierCommandDict = dict[Identifier, str]
 IdentifiedCommands = Union[
     Iterable[Identifier], IdentifierCommandDict, Callable[..., IdentifierCommandDict]
 ]
@@ -189,8 +190,7 @@ def local_commands(verbose=False):
 
     def _commands():
         for dirpath in dirpaths:
-            for command in _executables_of_dir(dirpath):
-                yield command
+            yield from _executables_of_dir(dirpath)
 
     return sorted(set(_commands()))
 
@@ -239,7 +239,7 @@ def _gather_duplicates(values, value_to_group_key):
 # TODO: Could resolve collisions (e.g. suffixing with _1, _2, etc.) instead of warning
 def identifier_mapping(
     strings: Iterable[str], str_to_id=str_to_identifier
-) -> Dict[str, Identifier]:
+) -> dict[str, Identifier]:
     """
     Maps strings to identifiers, returning a map from identifiers to the strings,
     warning about any collisions (when two distinct strings map to the same
@@ -255,7 +255,7 @@ def identifier_mapping(
 
 def local_identifier_command_dict(
     str_to_id=str_to_identifier, verbose=False
-) -> Dict[Identifier, str]:
+) -> dict[Identifier, str]:
     """
     A dict of ``{identifier: command, ...`` for all commands found in the local system.
 

@@ -1,7 +1,8 @@
 """Base objects for ps"""
 
 from functools import partial
-from typing import Iterable, Callable, Optional, Union
+from typing import Optional, Union
+from collections.abc import Iterable, Callable
 
 # Note: because typing.Mapping made Commands have signature (*args, **kwargs):
 from collections.abc import Mapping
@@ -102,8 +103,8 @@ class Command:
 
     def __init__(
         self,
-        command: Union[str],
-        run: Optional[Callable] = None,
+        command: str,
+        run: Callable | None = None,
         get_doc: Callable[[str], str] = find_doc,
         **run_kwargs,
     ):

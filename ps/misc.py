@@ -25,11 +25,11 @@ from typing import Optional, Union
 
 
 def run_commands_in_dir(
-    directory: Union[str, Path],
+    directory: str | Path,
     commands: str,
     *,
-    timeout: Optional[float] = None,
-    env: Optional[dict] = None,
+    timeout: float | None = None,
+    env: dict | None = None,
     shell_path: str = "/bin/bash",
 ) -> subprocess.CompletedProcess:
     """
