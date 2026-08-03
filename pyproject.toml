@@ -64,5 +64,5 @@ minversion = "6.0"
 # runs `pytest --doctest-modules` with no path argument, so collection is driven
 # entirely by testpaths. Pointing this at a nonexistent directory made pytest
 # warn and silently fall back to rootdir-wide collection.
-testpaths = ["ps"]
+testpaths = ["ps", "tests"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
