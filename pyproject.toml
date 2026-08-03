@@ -60,9 +60,10 @@ enabled = false
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-# The package itself is the test surface: there is no tests/ directory, and CI
-# runs `pytest --doctest-modules` with no path argument, so collection is driven
-# entirely by testpaths. Pointing this at a nonexistent directory made pytest
-# warn and silently fall back to rootdir-wide collection.
+# CI runs `pytest --doctest-modules` with no path argument, so collection is
+# driven entirely by testpaths. This must list the package as well as tests/:
+# the package's doctests are most of the test surface, and they are only reached
+# because "ps" is named here. This previously pointed at tests/ alone, which did
+# not exist, so pytest warned and fell back to rootdir-wide collection.
 testpaths = ["ps", "tests"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]

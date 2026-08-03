@@ -50,18 +50,8 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
         executable.write_text("#!/bin/sh\n")
         executable.chmod(0o755)
 
-    path = ";".join(map(str, (first, second)))
-    commands = local_commands_with_path(path)
+    monkeypatch.setenv("PATH", ";".join(map(str, (first, second))))
+    commands = local_commands()
 
     assert "alpha_cmd" in commands, "first PATH entry was not scanned"
     assert "beta_cmd" in commands, "second PATH entry was not scanned"
-
-
-def local_commands_with_path(path: str):
-    """Return ``local_commands()`` as computed against ``path``."""
-    original = os.environ.get("PATH", "")
-    os.environ["PATH"] = path
-    try:
-        return local_commands()
-    finally:
-        os.environ["PATH"] = original
