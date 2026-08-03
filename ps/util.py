@@ -185,7 +185,10 @@ def local_commands(verbose=False):
             if is_executable_file(filepath):
                 yield filename
 
-    dirpaths = os.environ.get("PATH", "").split(":")
+    # os.pathsep, not ":" -- PATH is separated by ";" on Windows, where a
+    # hardcoded ":" yielded a single unsplit string, no valid directories, and
+    # therefore no commands at all.
+    dirpaths = os.environ.get("PATH", "").split(os.pathsep)
     dirpaths = _keep_only_existing_paths(dirpaths, verbose)
 
     def _commands():
