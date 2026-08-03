@@ -48,7 +48,21 @@ convention = "google"
 "**/examples/*" = ["D"]
 "**/scrap/*" = ["D"]
 
+[tool.wads.ci.docs]
+# Sphinx API-doc generation is unsafe for this package and must stay off.
+# `ps` binds one `Command` object per executable found on PATH, and
+# `Command.__doc__` is a property that shells out (`man 1 <cmd>`, then
+# `<cmd> --help`) to build the doc on access. Autodoc reads `__doc__` on every
+# module member, so a docs build executes every binary on the machine. On the
+# CI runner that blocked forever on a GUI tool and the job was killed by the
+# 6-hour timeout, which marked the whole run "cancelled".
+enabled = false
+
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests"]
+# The package itself is the test surface: there is no tests/ directory, and CI
+# runs `pytest --doctest-modules` with no path argument, so collection is driven
+# entirely by testpaths. Pointing this at a nonexistent directory made pytest
+# warn and silently fall back to rootdir-wide collection.
+testpaths = ["ps"]
 doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
