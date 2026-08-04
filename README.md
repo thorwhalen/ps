@@ -34,12 +34,12 @@ list(c)
 #  'AssetCacheLocatorUtil'
 #  ...
 # ]
-'ls' in c
+"ls" in c
 # True
-'this_command_does_not_exist' in c
+"this_command_does_not_exist" in c
 # False
-py = c.get('python3.9', c.get('python3.8', None))
-c['ls']
+py = c.get("python3.9", c.get("python3.8", None))
+c["ls"]
 # Command(command='ls')
 ```
 
@@ -253,9 +253,9 @@ Example:
 ```python
 from ps.misc import run_commands_in_dir
 
-cp = run_commands_in_dir('.', "pwd; python -c 'print(40+2)'")
+cp = run_commands_in_dir(".", "pwd; python -c 'print(40+2)'")
 assert cp.returncode == 0
-assert '42' in cp.stdout
+assert "42" in cp.stdout
 ```
 
 Notes:
