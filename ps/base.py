@@ -1,6 +1,7 @@
 """Base objects for ps"""
 
 from functools import partial
+from subprocess import DEVNULL
 from typing import Optional, Union
 from collections.abc import Iterable, Callable
 
@@ -45,12 +46,28 @@ def first_valid_result(
             pass
 
 
-def man_1_page_str(command):
-    return str_if_bytes(run(f"man 1 {command}"))
+# Doc probes run an arbitrary executable just to read its documentation, so they
+# get a small default bound. A healthy probe costs well under a tenth of a second;
+# anything near this is a command that is never going to answer.
+DFLT_DOC_TIMEOUT = 5.0
 
 
-def dash_dash_help_str(command):
-    return str_if_bytes(run(f"{command} --help"))
+def man_1_page_str(command, *, timeout=DFLT_DOC_TIMEOUT):
+    """The ``man 1 <command>`` page, as a string.
+
+    ``stdin`` is closed and the probe is bounded by ``timeout``: a command that
+    waits on input or never returns must not hang the caller.
+    """
+    return str_if_bytes(run(f"man 1 {command}", timeout=timeout, stdin=DEVNULL))
+
+
+def dash_dash_help_str(command, *, timeout=DFLT_DOC_TIMEOUT):
+    """The ``<command> --help`` output, as a string.
+
+    ``stdin`` is closed and the probe is bounded by ``timeout``: plenty of tools
+    (GUI launchers especially) ignore ``--help`` and simply never return.
+    """
+    return str_if_bytes(run(f"{command} --help", timeout=timeout, stdin=DEVNULL))
 
 
 get_doc_options = {
@@ -60,6 +77,14 @@ get_doc_options = {
 
 
 def find_doc(command, *, doc_finders=(man_1_page_str, dash_dash_help_str)):
+    """The first non-empty documentation string any of ``doc_finders`` can produce.
+
+    Because ``first_valid_result`` swallows exceptions, a probe that times out
+    simply falls through to the next finder, and a command that no finder can
+    document ends up with an empty doc rather than a hang. Note that a single
+    explicitly-passed ``get_doc`` (see ``Command.help_str``) has no such
+    fallback, so its ``ps.util.ProcessTimeout`` propagates to the caller.
+    """
     return first_valid_result(doc_finders, command)
 
 
