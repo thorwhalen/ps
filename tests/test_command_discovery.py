@@ -64,18 +64,33 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
     assert "beta_cmd" in commands, "second PATH entry was not scanned"
 
 
+# One payload per class of shell metacharacter, because they are not neutralised
+# by the same things: naive double-quoting stops ";" and a newline but leaves
+# "$(...)" and backticks fully live.
+INJECTION_PAYLOADS = {
+    "semicolon": "ls; touch {marker}",
+    "command_substitution": "ls$(touch {marker})",
+    "backticks": "ls`touch {marker}`",
+    "newline": "ls\ntouch {marker}",
+    "ampersands": "ls && touch {marker}",
+}
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="`which` is POSIX-only")
-def test_which_does_not_execute_injected_commands(tmp_path):
+@pytest.mark.parametrize("payload", INJECTION_PAYLOADS.values(), ids=INJECTION_PAYLOADS)
+def test_which_does_not_execute_injected_commands(payload, tmp_path):
     """The argument is a command name, not a shell fragment to evaluate.
 
-    It used to be interpolated unquoted into a shell, so anything after a ";"
-    was executed -- an "is this on PATH?" question with arbitrary side effects.
+    It used to be interpolated unquoted into a shell, so anything a shell would
+    act on was executed -- an "is this on PATH?" question with arbitrary side
+    effects.
     """
     marker = tmp_path / "PWNED"
 
-    is_executable_according_to_which(f"ls; touch {marker}")
+    found = is_executable_according_to_which(payload.format(marker=marker))
 
     assert not marker.exists(), "the argument was executed as a shell fragment"
+    assert found is False, "a shell fragment is not an executable"
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="`which` is POSIX-only")
@@ -94,3 +109,27 @@ def test_identifier_mapping_still_rejects_real_collisions():
     """Two *distinct* strings mapping to one identifier is still an error."""
     with pytest.raises(ValueError, match="foo_bar"):
         identifier_mapping(["foo-bar", "foo.bar"])
+
+
+def test_identifier_mapping_does_not_require_hashable_inputs():
+    """Only the identifiers are hashed; the strings themselves need not be."""
+    assert identifier_mapping([["a"], ["b"]], str_to_id=lambda x: x[0]) == {
+        "a": ["a"],
+        "b": ["b"],
+    }
+
+
+def test_identifier_mapping_calls_str_to_id_once_per_input():
+    """A repeat is still offered to ``str_to_id``: it may be what tells them apart."""
+    calls = []
+
+    def uniquify(string):
+        calls.append(string)
+        return f"{string}_{calls.count(string)}"
+
+    assert identifier_mapping(["a", "a", "b"], str_to_id=uniquify) == {
+        "a_1": "a",
+        "a_2": "a",
+        "b_1": "b",
+    }
+    assert calls == ["a", "a", "b"]

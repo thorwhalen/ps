@@ -1,8 +1,14 @@
-"""Base objects for ps"""
+"""Base objects for ps.
 
-from functools import partial
+The supported ways to change *how* a command is run are ``Command(run=...)`` and
+``Commands(factory=...)``. The module-level ``run`` name here is an implementation
+detail: rebinding it is not a supported extension point.
+"""
+
+from functools import partial, wraps
 from subprocess import DEVNULL
 from typing import Optional, Union
+from warnings import warn
 from collections.abc import Iterable, Callable
 
 # Note: because typing.Mapping made Commands have signature (*args, **kwargs):
@@ -13,6 +19,7 @@ from ps.util import (
     local_identifier_command_dict,
     IdentifierCommandDict,
     IdentifiedCommands,
+    ProcessTimeout,
 )
 
 from dataclasses import dataclass
@@ -47,27 +54,46 @@ def first_valid_result(
 
 
 # Doc probes run an arbitrary executable just to read its documentation, so they
-# get a small default bound. A healthy probe costs well under a tenth of a second;
-# anything near this is a command that is never going to answer.
+# get a default bound. Trivial commands answer in well under a tenth of a second,
+# but a heavy CLI (a cloud SDK, a JVM-backed tool) can legitimately take a second
+# or three, so the bound is loose enough to let those through and tight enough
+# that a command which is never going to answer does not become a hang.
+# It is read at *call* time, so raising or lowering it at runtime takes effect;
+# every probe also takes an explicit ``timeout``, and so does ``find_doc``.
+# Worst case for one probe is DFLT_DOC_TIMEOUT + ps.util._REAP_TIMEOUT, and the
+# default ``find_doc`` runs two probes.
 DFLT_DOC_TIMEOUT = 5.0
 
 
-def man_1_page_str(command, *, timeout=DFLT_DOC_TIMEOUT):
+def _doc_probe(instruction, *, timeout, stdin):
+    """Run a documentation-producing ``instruction``, bounded, and return its text.
+
+    ``timeout=None`` means ``DFLT_DOC_TIMEOUT`` (read now, not at import time).
+    """
+    if timeout is None:
+        timeout = DFLT_DOC_TIMEOUT
+    return str_if_bytes(run(instruction, timeout=timeout, stdin=stdin))
+
+
+def man_1_page_str(command, *, timeout=None, stdin=DEVNULL):
     """The ``man 1 <command>`` page, as a string.
 
-    ``stdin`` is closed and the probe is bounded by ``timeout``: a command that
-    waits on input or never returns must not hang the caller.
+    :param timeout: Seconds to allow the probe. ``None`` means ``DFLT_DOC_TIMEOUT``.
+    :param stdin: What the probe's stdin should be. Closed by default: a command
+    that waits on input must not hang the caller. ``None`` inherits ours.
     """
-    return str_if_bytes(run(f"man 1 {command}", timeout=timeout, stdin=DEVNULL))
+    return _doc_probe(f"man 1 {command}", timeout=timeout, stdin=stdin)
 
 
-def dash_dash_help_str(command, *, timeout=DFLT_DOC_TIMEOUT):
+def dash_dash_help_str(command, *, timeout=None, stdin=DEVNULL):
     """The ``<command> --help`` output, as a string.
 
-    ``stdin`` is closed and the probe is bounded by ``timeout``: plenty of tools
-    (GUI launchers especially) ignore ``--help`` and simply never return.
+    :param timeout: Seconds to allow the probe. ``None`` means ``DFLT_DOC_TIMEOUT``.
+    Plenty of tools (GUI launchers especially) ignore ``--help`` and never return.
+    :param stdin: What the probe's stdin should be. Closed by default. ``None``
+    inherits ours -- which some CLIs use to size the help text they print.
     """
-    return str_if_bytes(run(f"{command} --help", timeout=timeout, stdin=DEVNULL))
+    return _doc_probe(f"{command} --help", timeout=timeout, stdin=stdin)
 
 
 get_doc_options = {
@@ -76,16 +102,45 @@ get_doc_options = {
 }
 
 
-def find_doc(command, *, doc_finders=(man_1_page_str, dash_dash_help_str)):
+def _warn_if_timed_out(doc_finder):
+    """``doc_finder``, wrapped to report a timeout before it is swallowed.
+
+    ``find_doc`` degrades to the next finder when one raises, which is what keeps
+    ``__doc__`` from hanging -- but it would also make a doc that vanished to a
+    timeout indistinguishable from a genuinely undocumented command.
+    """
+
+    @wraps(doc_finder)
+    def finder(command, **kwargs):
+        try:
+            return doc_finder(command, **kwargs)
+        except ProcessTimeout as timed_out:
+            warn(f"Gave up documenting {command!r}: {timed_out}")
+            raise
+
+    return finder
+
+
+def find_doc(
+    command, *, doc_finders=(man_1_page_str, dash_dash_help_str), timeout=None
+):
     """The first non-empty documentation string any of ``doc_finders`` can produce.
 
     Because ``first_valid_result`` swallows exceptions, a probe that times out
-    simply falls through to the next finder, and a command that no finder can
-    document ends up with an empty doc rather than a hang. Note that a single
-    explicitly-passed ``get_doc`` (see ``Command.help_str``) has no such
-    fallback, so its ``ps.util.ProcessTimeout`` propagates to the caller.
+    simply falls through to the next finder (warning as it goes, so the loss is
+    attributable), and a command that no finder can document ends up with an
+    empty doc rather than a hang. Note that a single explicitly-passed
+    ``get_doc`` (see ``Command.help_str``) has no such fallback, so its
+    ``ps.util.ProcessTimeout`` propagates to the caller.
+
+    :param doc_finders: The probes to try, in order.
+    :param timeout: Seconds to allow each probe. ``None`` (the default) leaves
+    each finder to its own default, and is the only value that is safe with
+    ``doc_finders`` that don't take a ``timeout``.
     """
-    return first_valid_result(doc_finders, command)
+    finder_kwargs = {} if timeout is None else {"timeout": timeout}
+    finders = map(_warn_if_timed_out, doc_finders)
+    return first_valid_result(finders, command, **finder_kwargs)
 
 
 _dflt_run = run  # to use when context overwrites "run" name
