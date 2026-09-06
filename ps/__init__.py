@@ -21,7 +21,9 @@ Note that finding an executable on ``PATH`` does not mean calling it is safe, or
 that it will work -- so use with care. In particular, a ``Command``'s ``__doc__``
 is computed lazily by *running* the command (``man 1 <cmd>``, then
 ``<cmd> --help``), so introspecting these objects en masse -- as documentation
-generators do -- will execute every binary on the machine.
+generators do -- will execute every binary on the machine. Each such probe gets
+its stdin closed and is bounded by :data:`ps.base.DFLT_DOC_TIMEOUT`, so it cannot
+hang, but it is still a real execution.
 """
 
 from ps.base import Command, Commands
