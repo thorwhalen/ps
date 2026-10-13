@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.49586820602417,
+  "collection_duration_seconds": 2.8267204761505127,
   "commit_message": "Skip the four POSIX-only doctests on Windows, by name, with a guard (#5) [run ci]\n\nThey wrap real PATH commands (pwd, ls) or a /bin/bash script, which\nwindows-latest lacks. A root conftest skips exactly those four there; a test\nfails if a listed name stops matching a doctest.\n\nClaude-Session: https://claude.ai/code/session_01EagSqUM8eSS7rd1yL2giEj",
   "commit_sha": "86d267efd42f596baaea6cdfaa9794015affce5d",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10484,
-      "comment_lines_ratio": 0.05236867869487902,
-      "docs_lines": 14620,
-      "empty_lines": 22537,
-      "empty_lines_ratio": 0.11257467681671962,
-      "files_analyzed": 515,
-      "function_lines": 70289,
-      "function_lines_ratio": 0.3511009210973246,
-      "mean_lines_per_function": 15.992946530147895,
-      "num_classes": 1253,
-      "num_functions": 4395,
+      "comment_lines": 10980,
+      "comment_lines_ratio": 0.05310042654440995,
+      "docs_lines": 15562,
+      "empty_lines": 23619,
+      "empty_lines_ratio": 0.11422395032353538,
+      "files_analyzed": 526,
+      "function_lines": 74911,
+      "function_lines_ratio": 0.36227741829401583,
+      "mean_lines_per_function": 15.918189545261368,
+      "num_classes": 1313,
+      "num_functions": 4706,
       "pypi_version": "0.1.10",
-      "total_lines": 200196
+      "total_lines": 206778
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-10-13T20:58:21.729077Z",
+  "timestamp": "2026-10-13T20:58:28.042273Z",
   "workflow_status": {}
 }
