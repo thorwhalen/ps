@@ -1,0 +1,42 @@
+metric,value
+schema_version,1.0
+timestamp,2026-10-13T20:58:21.729077Z
+commit_sha,86d267efd42f596baaea6cdfaa9794015affce5d
+commit_message,"Skip the four POSIX-only doctests on Windows, by name, with a guard (#5) [run ci]
+
+They wrap real PATH commands (pwd, ls) or a /bin/bash script, which
+windows-latest lacks. A root conftest skips exactly those four there; a test
+fails if a listed name stops matching a doctest.
+
+Claude-Session: https://claude.ai/code/session_01EagSqUM8eSS7rd1yL2giEj"
+python_version,3.10
+metrics.umpyre_stats.num_functions,4395
+metrics.umpyre_stats.num_classes,1253
+metrics.umpyre_stats.total_lines,200196
+metrics.umpyre_stats.empty_lines,22537
+metrics.umpyre_stats.comment_lines,10484
+metrics.umpyre_stats.docs_lines,14620
+metrics.umpyre_stats.function_lines,70289
+metrics.umpyre_stats.empty_lines_ratio,0.11257467681671962
+metrics.umpyre_stats.comment_lines_ratio,0.05236867869487902
+metrics.umpyre_stats.function_lines_ratio,0.3511009210973246
+metrics.umpyre_stats.mean_lines_per_function,15.992946530147895
+metrics.umpyre_stats.files_analyzed,515
+metrics.umpyre_stats.pypi_version,0.1.10
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-09-06T23:04:49Z
+metrics.workflow_status.recent_failure_count,3
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/34065819443
+metrics.workflow_status.total_runs_analyzed,10
+metrics.wily.cyclomatic_avg,0.0
+metrics.wily.maintainability_index,0.0
+metrics.wily.total_loc,0
+metrics.wily.files_analyzed,0
+metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
+"
+metrics.coverage.line_coverage,0.0
+metrics.coverage.branch_coverage,0.0
+metrics.coverage.statements_covered,0
+metrics.coverage.statements_total,0
+metrics.coverage.error,No coverage file found
+collection_duration_seconds,2.49586820602417
