@@ -1,10 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T11:46:43.365035Z
-commit_sha,2b808a09f5384bc75aff04c1536686384ff41e98
-commit_message,"Adjust the collision test for Windows identifiers (#9)
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+timestamp,2026-10-20T11:46:53.330029Z
+commit_sha,75ba27596bfef1b61b4b0a4487c4da5907029458
+commit_message,Merge 2b808a09f5384bc75aff04c1536686384ff41e98 into d9aa12425090d7428280e76c1fec6c510f15443a
 python_version,3.10
 metrics.umpyre_stats.num_functions,4724
 metrics.umpyre_stats.num_classes,1313
@@ -35,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.0734424591064453
+collection_duration_seconds,3.0398504734039307
