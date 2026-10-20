@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.713117837905884,
-  "commit_message": "Merge 0bc442cef8c517cc12cc572846095b13408cc891 into d28c1841a18885641e785489d0e61d658c3c85ed",
-  "commit_sha": "b331d3d90f0601cf9fa10fb1467edaf8724edd1e",
+  "collection_duration_seconds": 3.113481044769287,
+  "commit_message": "Keep Command's class docstring reachable so its doctest runs (#6)\n\nA __doc__ property hid the class docstring from doctest and help; a\ndescriptor now returns the docstring on the class and the command's help\non an instance. The new doctest wraps pwd, so it joins POSIX_ONLY_DOCTESTS.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+  "commit_sha": "0bc442cef8c517cc12cc572846095b13408cc891",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-10-20T17:38:00.010226Z",
+  "timestamp": "2026-10-20T17:38:02.141010Z",
   "workflow_status": {}
 }
