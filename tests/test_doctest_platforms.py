@@ -29,3 +29,12 @@ def test_every_skipped_doctest_exists():
     modules = {name.split(".")[0] + "." + name.split(".")[1] for name in names}
     found = set().union(*(_doctest_names(m) for m in modules))
     assert names <= found, f"not doctests any more: {sorted(names - found)}"
+
+
+def test_command_class_docstring_reaches_doctest():
+    """``Command.__doc__`` is its docstring on the class, its help on an instance (ps#6)."""
+    from ps.base import Command
+
+    assert "Command('pwd')" in Command.__doc__
+    cmd = Command("pwd", get_doc=lambda command: f"help for {command}")
+    assert cmd.__doc__ == "help for pwd"
