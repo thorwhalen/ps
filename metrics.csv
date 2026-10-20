@@ -1,6 +1,6 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T17:39:37.710647Z
+timestamp,2026-10-20T17:39:43.455435Z
 commit_sha,cf601c23bef7cf786993d28ed6f453a1b7999c96
 commit_message,"Keep Command's class docstring reachable so its doctest runs (#6) (#11)
 
@@ -10,18 +10,18 @@ on an instance. The new doctest wraps pwd, so it joins POSIX_ONLY_DOCTESTS.
 
 Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4414
-metrics.umpyre_stats.num_classes,1254
-metrics.umpyre_stats.total_lines,200784
-metrics.umpyre_stats.empty_lines,22635
-metrics.umpyre_stats.comment_lines,10518
-metrics.umpyre_stats.docs_lines,14729
-metrics.umpyre_stats.function_lines,70685
-metrics.umpyre_stats.empty_lines_ratio,0.11273308630169734
-metrics.umpyre_stats.comment_lines_ratio,0.05238465216351901
-metrics.umpyre_stats.function_lines_ratio,0.35204498366403697
-metrics.umpyre_stats.mean_lines_per_function,16.013819664703217
-metrics.umpyre_stats.files_analyzed,520
+metrics.umpyre_stats.num_functions,4725
+metrics.umpyre_stats.num_classes,1314
+metrics.umpyre_stats.total_lines,207366
+metrics.umpyre_stats.empty_lines,23717
+metrics.umpyre_stats.comment_lines,11014
+metrics.umpyre_stats.docs_lines,15671
+metrics.umpyre_stats.function_lines,75307
+metrics.umpyre_stats.empty_lines_ratio,0.11437265511221704
+metrics.umpyre_stats.comment_lines_ratio,0.053113818080109565
+metrics.umpyre_stats.function_lines_ratio,0.3631598236933731
+metrics.umpyre_stats.mean_lines_per_function,15.937989417989417
+metrics.umpyre_stats.files_analyzed,531
 metrics.umpyre_stats.pypi_version,0.1.13
 metrics.workflow_status.last_run_status,failure
 metrics.workflow_status.last_success_timestamp,2026-10-20T17:38:08Z
@@ -42,4 +42,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.1983373165130615
+collection_duration_seconds,3.7096550464630127

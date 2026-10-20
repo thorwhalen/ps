@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 3.1983373165130615,
+  "collection_duration_seconds": 3.7096550464630127,
   "commit_message": "Keep Command's class docstring reachable so its doctest runs (#6) (#11)\n\nA __doc__ property hid the class docstring from doctest and help; a\ndescriptor now returns the docstring on the class and the command's help\non an instance. The new doctest wraps pwd, so it joins POSIX_ONLY_DOCTESTS.\n\nCo-authored-by: Claude Opus 5.5 <noreply@anthropic.com>",
   "commit_sha": "cf601c23bef7cf786993d28ed6f453a1b7999c96",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10518,
-      "comment_lines_ratio": 0.05238465216351901,
-      "docs_lines": 14729,
-      "empty_lines": 22635,
-      "empty_lines_ratio": 0.11273308630169734,
-      "files_analyzed": 520,
-      "function_lines": 70685,
-      "function_lines_ratio": 0.35204498366403697,
-      "mean_lines_per_function": 16.013819664703217,
-      "num_classes": 1254,
-      "num_functions": 4414,
+      "comment_lines": 11014,
+      "comment_lines_ratio": 0.053113818080109565,
+      "docs_lines": 15671,
+      "empty_lines": 23717,
+      "empty_lines_ratio": 0.11437265511221704,
+      "files_analyzed": 531,
+      "function_lines": 75307,
+      "function_lines_ratio": 0.3631598236933731,
+      "mean_lines_per_function": 15.937989417989417,
+      "num_classes": 1314,
+      "num_functions": 4725,
       "pypi_version": "0.1.13",
-      "total_lines": 200784
+      "total_lines": 207366
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-10-20T17:39:37.710647Z",
+  "timestamp": "2026-10-20T17:39:43.455435Z",
   "workflow_status": {}
 }
