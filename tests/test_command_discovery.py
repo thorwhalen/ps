@@ -51,7 +51,7 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "pathsep", ";")
 
     first, second = tmp_path / "first", tmp_path / "second"
-    for directory, name in ((first, "alpha_cmd"), (second, "beta_cmd")):
+    for directory, name in ((first, "alpha_cmd.exe"), (second, "beta_cmd.exe")):
         directory.mkdir()
         executable = directory / name
         executable.write_text("#!/bin/sh\n")
@@ -60,8 +60,9 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", ";".join(map(str, (first, second))))
     commands = local_commands()
 
-    assert "alpha_cmd" in commands, "first PATH entry was not scanned"
-    assert "beta_cmd" in commands, "second PATH entry was not scanned"
+    # ".exe": executable by PATHEXT on Windows as well as by the mode bit on POSIX.
+    assert "alpha_cmd.exe" in commands, "first PATH entry was not scanned"
+    assert "beta_cmd.exe" in commands, "second PATH entry was not scanned"
 
 
 # One payload per class of shell metacharacter, because they are not neutralised
