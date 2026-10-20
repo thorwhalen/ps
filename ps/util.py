@@ -426,7 +426,9 @@ def identifier_mapping(
     {'foo_bar': 'foo-bar', 'foo_bar_2': 'foo.bar', 'foo_bar_3': 'foo bar'}
     """
     if on_collision not in ("raise", "suffix"):
-        raise ValueError(f"on_collision must be 'raise' or 'suffix', got {on_collision!r}")
+        raise ValueError(
+            f"on_collision must be 'raise' or 'suffix', got {on_collision!r}"
+        )
     strings = list(strings)
     if on_collision == "suffix":
         return _suffix_colliding_identifiers(strings, str_to_id)
