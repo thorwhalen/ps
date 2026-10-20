@@ -1,0 +1,47 @@
+{
+  "collection_duration_seconds": 2.118335485458374,
+  "commit_message": "Windows CI: PATHEXT-correct discovery test; skip POSIX-only doctests on Windows (#2)",
+  "commit_sha": "57fd0a0d2a454288546cb7451562e8606a7f59da",
+  "metrics": {
+    "coverage": {
+      "branch_coverage": 0.0,
+      "error": "No coverage file found",
+      "line_coverage": 0.0,
+      "statements_covered": 0,
+      "statements_total": 0
+    },
+    "umpyre_stats": {
+      "comment_lines": 10514,
+      "comment_lines_ratio": 0.05238977915969066,
+      "docs_lines": 14705,
+      "empty_lines": 22621,
+      "empty_lines_ratio": 0.11271725265088096,
+      "files_analyzed": 520,
+      "function_lines": 70620,
+      "function_lines_ratio": 0.35188950011958864,
+      "mean_lines_per_function": 16.00997506234414,
+      "num_classes": 1253,
+      "num_functions": 4411,
+      "pypi_version": "0.1.10",
+      "total_lines": 200688
+    },
+    "wily": {
+      "cyclomatic_avg": 0.0,
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
+      "files_analyzed": 0,
+      "maintainability_index": 0.0,
+      "total_loc": 0
+    },
+    "workflow_status": {
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-10-20T11:25:05Z",
+      "recent_failure_count": 2,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/39414632842",
+      "total_runs_analyzed": 10
+    }
+  },
+  "python_version": "3.10",
+  "schema_version": "1.0",
+  "timestamp": "2026-10-20T11:26:39.505665Z",
+  "workflow_status": {}
+}
