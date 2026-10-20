@@ -1,48 +1,39 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T11:48:41.435171Z
-commit_sha,1f8758ffc013674e7c932e2eb2d3bbc7a50c54f5
-commit_message,"Windows: git.exe is ps.git (#9) (#10)
-
-* Windows: drop the PATHEXT extension from command identifiers (git.exe -> ps.git) (#9)
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
-
-* Adjust the collision test for Windows identifiers (#9)
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
-
----------
-
-Co-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>"
+timestamp,2026-10-20T17:38:00.010226Z
+commit_sha,b331d3d90f0601cf9fa10fb1467edaf8724edd1e
+commit_message,Merge 0bc442cef8c517cc12cc572846095b13408cc891 into d28c1841a18885641e785489d0e61d658c3c85ed
 python_version,3.10
-metrics.umpyre_stats.num_functions,4413
-metrics.umpyre_stats.num_classes,1253
-metrics.umpyre_stats.total_lines,200767
-metrics.umpyre_stats.empty_lines,22630
-metrics.umpyre_stats.comment_lines,10516
-metrics.umpyre_stats.docs_lines,14725
-metrics.umpyre_stats.function_lines,70681
-metrics.umpyre_stats.empty_lines_ratio,0.11271772751498005
-metrics.umpyre_stats.comment_lines_ratio,0.052379126051592145
-metrics.umpyre_stats.function_lines_ratio,0.3520548695751792
-metrics.umpyre_stats.mean_lines_per_function,16.016542034896897
+metrics.umpyre_stats.num_functions,4414
+metrics.umpyre_stats.num_classes,1254
+metrics.umpyre_stats.total_lines,200784
+metrics.umpyre_stats.empty_lines,22635
+metrics.umpyre_stats.comment_lines,10518
+metrics.umpyre_stats.docs_lines,14729
+metrics.umpyre_stats.function_lines,70685
+metrics.umpyre_stats.empty_lines_ratio,0.11273308630169734
+metrics.umpyre_stats.comment_lines_ratio,0.05238465216351901
+metrics.umpyre_stats.function_lines_ratio,0.35204498366403697
+metrics.umpyre_stats.mean_lines_per_function,16.013819664703217
 metrics.umpyre_stats.files_analyzed,520
-metrics.umpyre_stats.pypi_version,0.1.12
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-10-20T11:47:02Z
+metrics.umpyre_stats.pypi_version,0.1.13
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-10-20T11:50:06Z
 metrics.workflow_status.recent_failure_count,3
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39417480952
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39417694851
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
 metrics.wily.total_loc,0
 metrics.wily.files_analyzed,0
-metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
+metrics.wily.error,"wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...
+Try 'wily report --help' for help.
+
+Error: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.
 "
 metrics.coverage.line_coverage,0.0
 metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.884514570236206
+collection_duration_seconds,2.713117837905884
