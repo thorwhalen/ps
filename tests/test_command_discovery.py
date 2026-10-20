@@ -183,3 +183,33 @@ def test_import_survives_colliding_commands(tmp_path):
     )
     assert result.returncode == 0, result.stderr
     assert "foo_bar_exe" in result.stdout and "foo_bar_exe_2" in result.stdout
+
+
+def test_windows_identifiers_drop_the_pathext_extension():
+    from ps.util import windows_identifier_mapping
+
+    mapping = windows_identifier_mapping(
+        ["git.exe", "git.cmd", "Tool.EXE", "foo-bar.bat"], pathext=".COM;.EXE;.BAT;.CMD"
+    )
+    assert mapping == {
+        "git": "git.exe",  # .EXE precedes .CMD in PATHEXT
+        "Tool": "Tool.EXE",
+        "foo_bar": "foo-bar.bat",
+        "git_cmd": "git.cmd",
+    }
+
+
+def test_pathext_order_decides_who_gets_the_bare_name():
+    from ps.util import windows_identifier_mapping
+
+    mapping = windows_identifier_mapping(["git.exe", "git.cmd"], pathext=".CMD;.EXE")
+    assert mapping["git"] == "git.cmd" and mapping["git_exe"] == "git.exe"
+
+
+def test_the_local_dict_follows_the_platform(monkeypatch):
+    from ps import util
+
+    monkeypatch.setattr(util, "local_commands", lambda verbose=False: ["a.exe", "b"])
+    assert util.local_identifier_command_dict(windows=False) == {"a_exe": "a.exe", "b": "b"}
+    monkeypatch.setenv("PATHEXT", ".EXE")
+    assert util.local_identifier_command_dict(windows=True) == {"a": "a.exe", "b": "b"}

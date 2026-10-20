@@ -468,8 +468,60 @@ def _suffix_colliding_identifiers(strings: list, str_to_id) -> dict:
     return str_of_id
 
 
+def _pathext_stem(command: str, extensions: tuple[str, ...]) -> tuple[str, int | None]:
+    """``(name without its PATHEXT extension, that extension's rank)``; rank is
+    ``None`` when the name has no such extension.
+
+    >>> _pathext_stem('git.EXE', ('.com', '.exe'))
+    ('git', 1)
+    >>> _pathext_stem('git-lfs', ('.com', '.exe'))
+    ('git-lfs', None)
+    """
+    lowered = command.lower()
+    for rank, ext in enumerate(extensions):
+        if lowered.endswith(ext) and len(command) > len(ext):
+            return command[: -len(ext)], rank
+    return command, None
+
+
+def windows_identifier_mapping(
+    commands: Iterable[str],
+    str_to_id=str_to_identifier,
+    *,
+    pathext: str | None = None,
+) -> dict[Identifier, str]:
+    """Like ``identifier_mapping(on_collision="suffix")``, but ``git.exe`` is ``git``.
+
+    On Windows a command is typed without its ``PATHEXT`` extension, so the extension
+    is dropped from the identifier. When one name exists with several extensions, the
+    one earlier in ``PATHEXT`` wins the bare identifier (as it does at the Windows
+    prompt); the others keep their extension in theirs. The mapped value is always the
+    real file name, so calling it still runs exactly that file.
+
+    >>> windows_identifier_mapping(['git.exe', 'git.cmd', 'tool.exe'], pathext='.COM;.EXE;.CMD')
+    {'git': 'git.exe', 'tool': 'tool.exe', 'git_cmd': 'git.cmd'}
+    """
+    extensions = _windows_executable_extensions(pathext)
+    commands = list(dict.fromkeys(commands))
+    best: dict[str, tuple[int, str, str]] = {}  # lowered stem -> (rank, command, stem)
+    for command in commands:
+        stem, rank = _pathext_stem(command, extensions)
+        if rank is not None and (
+            stem.lower() not in best or rank < best[stem.lower()][0]
+        ):
+            best[stem.lower()] = (rank, command, stem)
+    winners = {command: stem for _, command, stem in best.values()}
+    display = {c: winners.get(c, c) for c in commands}
+    ordered = sorted(commands, key=lambda c: c not in winners)  # winners claim names first
+    named = identifier_mapping(
+        [display[c] for c in ordered], str_to_id, on_collision="suffix"
+    )
+    command_of_display = {display[c]: c for c in ordered}
+    return {ident: command_of_display[name] for ident, name in named.items()}
+
+
 def local_identifier_command_dict(
-    str_to_id=str_to_identifier, verbose=False
+    str_to_id=str_to_identifier, verbose=False, *, windows: bool | None = None
 ) -> dict[Identifier, str]:
     """
     A dict of ``{identifier: command, ...`` for all commands found in the local system.
@@ -480,7 +532,14 @@ def local_identifier_command_dict(
     (when it contains anything that is not alphanumeric or an underscore, for example;
     dots or dashes), the ``identifier`` saves the day to make a valid python function
     name
+
+    On Windows (``windows=None`` follows ``os.name``) the ``PATHEXT`` extension is
+    dropped, so ``git.exe`` is ``ps.git`` (see :func:`windows_identifier_mapping`).
     """
+    if windows is None:
+        windows = os.name == "nt"
+    if windows:
+        return windows_identifier_mapping(local_commands(verbose), str_to_id)
     # Importing ps scans the whole PATH, so a collision anywhere on the system must
     # not make `import ps` fail: suffix and warn instead of raising.
     return identifier_mapping(local_commands(verbose), str_to_id, on_collision="suffix")
