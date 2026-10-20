@@ -1,10 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T11:44:43.855729Z
-commit_sha,08861007e64a1dc6873f6de1194bba2f97883ef6
-commit_message,"Windows: drop the PATHEXT extension from command identifiers (git.exe -> ps.git) (#9)
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+timestamp,2026-10-20T11:44:49.020631Z
+commit_sha,c6f94419f1bf3c50a89cf350b126a21ccef166ff
+commit_message,Merge 08861007e64a1dc6873f6de1194bba2f97883ef6 into d9aa12425090d7428280e76c1fec6c510f15443a
 python_version,3.10
 metrics.umpyre_stats.num_functions,4413
 metrics.umpyre_stats.num_classes,1253
@@ -35,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.8638803958892822
+collection_duration_seconds,2.811352252960205

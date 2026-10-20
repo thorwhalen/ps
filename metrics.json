@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.8638803958892822,
-  "commit_message": "Windows: drop the PATHEXT extension from command identifiers (git.exe -> ps.git) (#9)\n\nCo-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>",
-  "commit_sha": "08861007e64a1dc6873f6de1194bba2f97883ef6",
+  "collection_duration_seconds": 2.811352252960205,
+  "commit_message": "Merge 08861007e64a1dc6873f6de1194bba2f97883ef6 into d9aa12425090d7428280e76c1fec6c510f15443a",
+  "commit_sha": "c6f94419f1bf3c50a89cf350b126a21ccef166ff",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-10-20T11:44:43.855729Z",
+  "timestamp": "2026-10-20T11:44:49.020631Z",
   "workflow_status": {}
 }
