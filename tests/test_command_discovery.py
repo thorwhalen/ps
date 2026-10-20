@@ -51,7 +51,7 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
     monkeypatch.setattr(os, "pathsep", ";")
 
     first, second = tmp_path / "first", tmp_path / "second"
-    for directory, name in ((first, "alpha_cmd"), (second, "beta_cmd")):
+    for directory, name in ((first, "alpha_cmd.exe"), (second, "beta_cmd.exe")):
         directory.mkdir()
         executable = directory / name
         executable.write_text("#!/bin/sh\n")
@@ -60,8 +60,9 @@ def test_path_is_split_on_the_platform_separator(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", ";".join(map(str, (first, second))))
     commands = local_commands()
 
-    assert "alpha_cmd" in commands, "first PATH entry was not scanned"
-    assert "beta_cmd" in commands, "second PATH entry was not scanned"
+    # ".exe": executable by PATHEXT on Windows as well as by the mode bit on POSIX.
+    assert "alpha_cmd.exe" in commands, "first PATH entry was not scanned"
+    assert "beta_cmd.exe" in commands, "second PATH entry was not scanned"
 
 
 # One payload per class of shell metacharacter, because they are not neutralised
@@ -133,3 +134,52 @@ def test_identifier_mapping_calls_str_to_id_once_per_input():
         "b_1": "b",
     }
     assert calls == ["a", "a", "b"]
+
+
+def test_windows_executability_follows_pathext(tmp_path):
+    """On Windows os.access(X_OK) is true for any readable file: PATHEXT decides."""
+    from ps.util import is_executable_file
+
+    exe, txt = tmp_path / "Tool.EXE", tmp_path / "notes.txt"
+    exe.write_text("")
+    txt.write_text("")
+    assert is_executable_file(exe, windows=True, pathext=".COM;.EXE;.BAT")
+    assert not is_executable_file(txt, windows=True, pathext=".COM;.EXE;.BAT")
+    assert not is_executable_file(tmp_path, windows=True)  # directories never
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX execute bit")
+def test_posix_executability_is_the_execute_bit(tmp_path):
+    from ps.util import is_executable_file
+
+    plain, runnable = tmp_path / "plain", tmp_path / "runnable"
+    plain.write_text("")
+    runnable.write_text("")
+    runnable.chmod(0o755)
+    assert is_executable_file(runnable)
+    assert not is_executable_file(plain)
+
+
+def test_collisions_can_be_suffixed_with_a_warning():
+    with pytest.warns(UserWarning, match="suffixed"):
+        result = identifier_mapping(["a-b", "a.b"], on_collision="suffix")
+    assert result == {"a_b": "a-b", "a_b_2": "a.b"}
+    with pytest.raises(ValueError, match="on_collision"):
+        identifier_mapping([], on_collision="nope")
+
+
+def test_import_survives_colliding_commands(tmp_path):
+    """Two PATH commands sharing an identifier must not make `import ps` raise."""
+    for name in ("foo-bar.exe", "foo.bar.exe"):
+        f = tmp_path / name
+        f.write_text("")
+        f.chmod(0o755)
+    env = {**os.environ, "PATH": str(tmp_path)}
+    result = subprocess.run(
+        [sys.executable, "-c", "import ps; print(sorted(ps.Commands()))"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "foo_bar_exe" in result.stdout and "foo_bar_exe_2" in result.stdout
