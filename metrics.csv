@@ -1,14 +1,14 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T17:38:02.141010Z
-commit_sha,0bc442cef8c517cc12cc572846095b13408cc891
-commit_message,"Keep Command's class docstring reachable so its doctest runs (#6)
+timestamp,2026-10-20T17:39:37.710647Z
+commit_sha,cf601c23bef7cf786993d28ed6f453a1b7999c96
+commit_message,"Keep Command's class docstring reachable so its doctest runs (#6) (#11)
 
 A __doc__ property hid the class docstring from doctest and help; a
 descriptor now returns the docstring on the class and the command's help
 on an instance. The new doctest wraps pwd, so it joins POSIX_ONLY_DOCTESTS.
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>"
 python_version,3.10
 metrics.umpyre_stats.num_functions,4414
 metrics.umpyre_stats.num_classes,1254
@@ -23,10 +23,10 @@ metrics.umpyre_stats.function_lines_ratio,0.35204498366403697
 metrics.umpyre_stats.mean_lines_per_function,16.013819664703217
 metrics.umpyre_stats.files_analyzed,520
 metrics.umpyre_stats.pypi_version,0.1.13
-metrics.workflow_status.last_run_status,success
-metrics.workflow_status.last_success_timestamp,2026-10-20T11:50:06Z
+metrics.workflow_status.last_run_status,failure
+metrics.workflow_status.last_success_timestamp,2026-10-20T17:38:08Z
 metrics.workflow_status.recent_failure_count,3
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39417694851
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39467841656
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -42,4 +42,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.113481044769287
+collection_duration_seconds,3.1983373165130615
