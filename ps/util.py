@@ -512,7 +512,9 @@ def windows_identifier_mapping(
             best[stem.lower()] = (rank, command, stem)
     winners = {command: stem for _, command, stem in best.values()}
     display = {c: winners.get(c, c) for c in commands}
-    ordered = sorted(commands, key=lambda c: c not in winners)  # winners claim names first
+    ordered = sorted(
+        commands, key=lambda c: c not in winners
+    )  # winners claim names first
     named = identifier_mapping(
         [display[c] for c in ordered], str_to_id, on_collision="suffix"
     )
