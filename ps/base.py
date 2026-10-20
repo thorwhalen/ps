@@ -146,6 +146,22 @@ def find_doc(
 _dflt_run = run  # to use when context overwrites "run" name
 
 
+class _ClassOrInstanceDoc:
+    """A ``__doc__`` that is ``class_doc`` on the class and ``help_str()`` on an instance.
+
+    A plain ``property`` would hide the class docstring: on the class it is the
+    property object itself, so ``doctest`` and ``help`` find no docstring.
+    """
+
+    def __init__(self, class_doc: str):
+        self.class_doc = class_doc
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self.class_doc
+        return instance.help_str()
+
+
 class Command:
     """
     A ``Command`` runs a specific shell script for you in a specific manner.
@@ -205,9 +221,9 @@ class Command:
         args_str = join_if_not_string(args)
         return f"{self.command} {args_str}"
 
-    @property
-    def __doc__(self):
-        return self.help_str()
+    # The class docstring stays reachable on the class (for doctest and ``help``),
+    # while an instance's ``__doc__`` is its command's help (thorwhalen/ps#6).
+    __doc__ = _ClassOrInstanceDoc(__doc__)
 
     # TODO: Include 'intelligence' to find the appropriate help string
     def help_str(self, get_doc=None):

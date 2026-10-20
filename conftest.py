@@ -19,6 +19,7 @@ import pytest
 #: Doctest ids (``module.qualname``) that need a POSIX system.
 POSIX_ONLY_DOCTESTS = frozenset(
     {
+        "ps.base.Command",  # wraps `pwd`
         "ps.base.Commands",  # wraps `pwd` and `ls -l` / `ls -la`
         "ps.misc",  # run_commands_in_dir: /bin/bash, `pwd`
         "ps.misc.run_commands_in_dir",  # same
