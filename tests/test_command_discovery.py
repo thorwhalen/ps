@@ -182,7 +182,9 @@ def test_import_survives_colliding_commands(tmp_path):
         env=env,
     )
     assert result.returncode == 0, result.stderr
-    assert "foo_bar_exe" in result.stdout and "foo_bar_exe_2" in result.stdout
+    # Windows drops the .exe from the identifiers (#9); POSIX keeps it.
+    stem = "foo_bar" if os.name == "nt" else "foo_bar_exe"
+    assert f"'{stem}'" in result.stdout and f"'{stem}_2'" in result.stdout
 
 
 def test_windows_identifiers_drop_the_pathext_extension():
