@@ -1,26 +1,38 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T11:46:56.832026Z
-commit_sha,75ba27596bfef1b61b4b0a4487c4da5907029458
-commit_message,Merge 2b808a09f5384bc75aff04c1536686384ff41e98 into d9aa12425090d7428280e76c1fec6c510f15443a
+timestamp,2026-10-20T11:48:39.643524Z
+commit_sha,1f8758ffc013674e7c932e2eb2d3bbc7a50c54f5
+commit_message,"Windows: git.exe is ps.git (#9) (#10)
+
+* Windows: drop the PATHEXT extension from command identifiers (git.exe -> ps.git) (#9)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+* Adjust the collision test for Windows identifiers (#9)
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+
+---------
+
+Co-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4413
-metrics.umpyre_stats.num_classes,1253
-metrics.umpyre_stats.total_lines,200767
-metrics.umpyre_stats.empty_lines,22630
-metrics.umpyre_stats.comment_lines,10516
-metrics.umpyre_stats.docs_lines,14725
-metrics.umpyre_stats.function_lines,70681
-metrics.umpyre_stats.empty_lines_ratio,0.11271772751498005
-metrics.umpyre_stats.comment_lines_ratio,0.052379126051592145
-metrics.umpyre_stats.function_lines_ratio,0.3520548695751792
-metrics.umpyre_stats.mean_lines_per_function,16.016542034896897
-metrics.umpyre_stats.files_analyzed,520
+metrics.umpyre_stats.num_functions,4724
+metrics.umpyre_stats.num_classes,1313
+metrics.umpyre_stats.total_lines,207349
+metrics.umpyre_stats.empty_lines,23712
+metrics.umpyre_stats.comment_lines,11012
+metrics.umpyre_stats.docs_lines,15667
+metrics.umpyre_stats.function_lines,75303
+metrics.umpyre_stats.empty_lines_ratio,0.11435791829234769
+metrics.umpyre_stats.comment_lines_ratio,0.05310852716916889
+metrics.umpyre_stats.function_lines_ratio,0.36317030706682935
+metrics.umpyre_stats.mean_lines_per_function,15.94051651143099
+metrics.umpyre_stats.files_analyzed,531
 metrics.umpyre_stats.pypi_version,0.1.12
-metrics.workflow_status.last_run_status,success
-metrics.workflow_status.last_success_timestamp,2026-10-20T11:44:53Z
-metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39417020230
+metrics.workflow_status.last_run_status,failure
+metrics.workflow_status.last_success_timestamp,2026-10-20T11:47:02Z
+metrics.workflow_status.recent_failure_count,3
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39417480952
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -33,4 +45,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.6230556964874268
+collection_duration_seconds,2.629354238510132
