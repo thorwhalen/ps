@@ -232,8 +232,40 @@ def print_text_egress(
 
 
 is_executable_path = partial(os.access, mode=os.X_OK)
-# directories are also executable, so could need:
-is_executable_file = lambda path: os.path.isfile(path) and is_executable_path(path)
+
+#: Used when ``PATHEXT`` is not set (it always is on a real Windows machine).
+DFLT_PATHEXT = ".COM;.EXE;.BAT;.CMD"
+
+
+def _windows_executable_extensions(pathext: str | None = None) -> tuple[str, ...]:
+    """Lower-cased extensions Windows treats as runnable, from ``PATHEXT``.
+
+    >>> _windows_executable_extensions(".COM;.EXE;;.Bat")
+    ('.com', '.exe', '.bat')
+    """
+    if pathext is None:
+        pathext = os.environ.get("PATHEXT") or DFLT_PATHEXT
+    return tuple(ext.lower() for ext in pathext.split(";") if ext)
+
+
+def is_executable_file(path, *, windows: bool | None = None, pathext=None) -> bool:
+    """Is ``path`` a file the OS would run as a command?
+
+    On POSIX that is a file with the execute bit. On Windows ``os.access(X_OK)``
+    ignores the mode (it is true for any readable file), so the extension must be
+    listed in ``PATHEXT`` instead. ``windows`` and ``pathext`` default to the
+    current platform and environment; they exist so both rules are testable anywhere.
+
+    >>> is_executable_file('/no/such/file')
+    False
+    """
+    if not os.path.isfile(path):  # directories are also "executable" on POSIX
+        return False
+    if windows is None:
+        windows = os.name == "nt"
+    if windows:
+        return str(path).lower().endswith(_windows_executable_extensions(pathext))
+    return is_executable_path(path)
 
 
 def is_executable_according_to_which(string: str):
@@ -255,7 +287,6 @@ def is_executable_according_to_which(string: str):
     return bool(simple_run_command(f"which {shlex_quote(string)}", strip_output=True))
 
 
-# TODO: Generalize to DOS
 # See options for getting available commands here:
 # https://stackoverflow.com/questions/948008/linux-command-to-list-all-available-commands-and-aliases
 def local_commands(verbose=False):
@@ -264,7 +295,8 @@ def local_commands(verbose=False):
 
     The function will look at all folders listed in the PATH environment variables,
     and gather all filenames of files therein (in first level of folder only) that
-    are executable.
+    are executable. "Executable" is the execute bit on POSIX and a ``PATHEXT``
+    extension on Windows (see :func:`is_executable_file`).
 
     Essentially do what the command:
     ``ls $(echo $PATH | tr ':' ' ') | grep -v '/' | grep . | sort``
@@ -362,9 +394,8 @@ def _gather_collisions(values, value_to_group_key):
     }
 
 
-# TODO: Could resolve collisions (e.g. suffixing with _1, _2, etc.) instead of raising
 def identifier_mapping(
-    strings: Iterable[str], str_to_id=str_to_identifier
+    strings: Iterable[str], str_to_id=str_to_identifier, *, on_collision: str = "raise"
 ) -> dict[str, Identifier]:
     """
     Maps strings to identifiers, returning a map from identifiers to the strings,
@@ -387,8 +418,18 @@ def identifier_mapping(
     Traceback (most recent call last):
       ...
     ValueError: Some commands mapped to the same identifier: {'foo_bar': ['foo-bar', 'foo.bar']}
+
+    With ``on_collision="suffix"`` the first keeps the identifier and the others get
+    ``_2``, ``_3``, ... (in input order), with a warning, instead of raising:
+
+    >>> identifier_mapping(['foo-bar', 'foo.bar', 'foo bar'], on_collision="suffix")
+    {'foo_bar': 'foo-bar', 'foo_bar_2': 'foo.bar', 'foo_bar_3': 'foo bar'}
     """
+    if on_collision not in ("raise", "suffix"):
+        raise ValueError(f"on_collision must be 'raise' or 'suffix', got {on_collision!r}")
     strings = list(strings)
+    if on_collision == "suffix":
+        return _suffix_colliding_identifiers(strings, str_to_id)
     str_of_id = {str_to_id(string): string for string in strings}
     if len(str_of_id) != len(strings):
         # Fewer identifiers than strings, so *something* shares one. That is only
@@ -397,6 +438,31 @@ def identifier_mapping(
             raise ValueError(
                 f"Some commands mapped to the same identifier: {collisions}"
             )
+    return str_of_id
+
+
+def _suffix_colliding_identifiers(strings: list, str_to_id) -> dict:
+    """The ``on_collision="suffix"`` strategy of :func:`identifier_mapping`."""
+    str_of_id: dict = {}
+    seen = []
+    collided = []
+    for string in strings:
+        if string in seen:  # a repeat is the same command, not a collision
+            continue
+        seen.append(string)
+        identifier = candidate = str_to_id(string)
+        n = 1
+        while candidate in str_of_id:
+            n += 1
+            candidate = f"{identifier}_{n}"
+        if n > 1:
+            collided.append((string, candidate))
+        str_of_id[candidate] = string
+    if collided:
+        warn(
+            "Some commands mapped to an identifier already taken, so they were "
+            f"suffixed: {dict(collided)}"
+        )
     return str_of_id
 
 
@@ -413,4 +479,6 @@ def local_identifier_command_dict(
     dots or dashes), the ``identifier`` saves the day to make a valid python function
     name
     """
-    return identifier_mapping(local_commands(verbose), str_to_id)
+    # Importing ps scans the whole PATH, so a collision anywhere on the system must
+    # not make `import ps` fail: suffix and warn instead of raising.
+    return identifier_mapping(local_commands(verbose), str_to_id, on_collision="suffix")
