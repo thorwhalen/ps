@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.4298336505889893,
+  "collection_duration_seconds": 3.2306010723114014,
   "commit_message": "Windows command discovery: PATHEXT, and non-fatal identifier collisions (#8)\n\n* Windows command discovery: PATHEXT executability; suffix identifier collisions on import (#2)\n\n* Windows CI: PATHEXT-correct discovery test; skip POSIX-only doctests on Windows (#2)",
   "commit_sha": "7720c1f4ea685f98843fedc8de1fb81916ce037c",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 11012,
-      "comment_lines_ratio": 0.053124155763961255,
-      "docs_lines": 15647,
-      "empty_lines": 23704,
-      "empty_lines_ratio": 0.11435297749990352,
-      "files_analyzed": 531,
-      "function_lines": 75246,
-      "function_lines_ratio": 0.36300219983790666,
-      "mean_lines_per_function": 15.935196950444727,
-      "num_classes": 1313,
-      "num_functions": 4722,
+      "comment_lines": 10516,
+      "comment_lines_ratio": 0.05239504548942234,
+      "docs_lines": 14705,
+      "empty_lines": 22622,
+      "empty_lines_ratio": 0.1127121261945333,
+      "files_analyzed": 520,
+      "function_lines": 70624,
+      "function_lines_ratio": 0.35187787111496416,
+      "mean_lines_per_function": 16.01088188619361,
+      "num_classes": 1253,
+      "num_functions": 4411,
       "pypi_version": "0.1.11",
-      "total_lines": 207288
+      "total_lines": 200706
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-10-20T11:30:19.374299Z",
+  "timestamp": "2026-10-20T11:30:29.079017Z",
   "workflow_status": {}
 }
