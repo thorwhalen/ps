@@ -1241,13 +1241,88 @@ def _adapter_handler(adapter) -> Callable[[dict], Any]:
     return handle
 
 
+#: Where systems keep their CA bundle (macOS, Debian/Ubuntu, RHEL/Fedora, openSUSE, Alpine).
+SYSTEM_CA_BUNDLES = (
+    "/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/etc/pki/tls/certs/ca-bundle.crt",
+    "/etc/ssl/ca-bundle.pem",
+)
+
+
+def ensure_ca_bundle(
+    *, environ: Optional[dict] = None, verify_paths: Optional[Callable] = None
+) -> Optional[str]:
+    """Point ``SSL_CERT_FILE`` at a CA bundle when this Python's OpenSSL has none; return it.
+
+    An environment's interpreter is whichever Python ``uv`` found first, and some (a
+    MacPorts or Homebrew Python whose CA file is missing, say) ship an OpenSSL with
+    no CA certificates, so every HTTPS request made with ``urllib`` fails to verify.
+    When neither of OpenSSL's variables is set and its default file is missing or
+    empty and its default folder holds no hashed certificates, this sets the file
+    variable to the first :data:`SYSTEM_CA_BUNDLES` that exists (it holds what the
+    administrator added), else to ``certifi``'s bundle if certifi is installed.
+    Verification stays on. Nothing is done on Windows, where Python reads the
+    system store. Every :func:`serve_adapter` worker runs it before loading its
+    adapter; its children inherit the variable. (:func:`run_process` commands do
+    not get it.)
+
+    Returns:
+        The bundle it set, or None (nothing to do, or nothing found).
+    """
+    import re
+    import ssl
+
+    if sys.platform == "win32":
+        return None
+    env = os.environ if environ is None else environ
+    paths = (verify_paths or ssl.get_default_verify_paths)()
+    file_var = getattr(paths, "openssl_cafile_env", "SSL_CERT_FILE")
+    dir_var = getattr(paths, "openssl_capath_env", "SSL_CERT_DIR")
+    if env.get(file_var) or env.get(dir_var):
+        return None
+
+    def has_file(file):
+        try:
+            return bool(file) and os.path.getsize(file) > 0
+        except OSError:
+            return False
+
+    def has_hashed(folder):  # OpenSSL reads only <8 hex>.<n> names in its folder
+        try:
+            return bool(folder) and any(
+                re.fullmatch(r"[0-9a-f]{8}\.\d+", e.name) for e in os.scandir(folder)
+            )
+        except OSError:
+            return False
+
+    if has_file(paths.openssl_cafile) or has_hashed(paths.openssl_capath):
+        return None
+    bundle = next((b for b in SYSTEM_CA_BUNDLES if has_file(b)), None)
+    if bundle is None:
+        try:
+            import certifi
+
+            bundle = certifi.where()
+        except ImportError:
+            pass
+    if bundle:
+        env[file_var] = bundle
+    return bundle
+
+
 def serve_adapter(path: PathLike) -> None:
     """Load the adapter file at ``path`` and answer JSON requests on stdin (what a :class:`Worker` runs).
 
     stdout is protected before the adapter is loaded, so what it prints on import goes
-    to stderr too; the adapter's folder is put first on ``sys.path``.
+    to stderr too; the adapter's folder is put first on ``sys.path``; an interpreter
+    whose OpenSSL has no CA bundle gets one (:func:`ensure_ca_bundle`).
     """
     replies = _protect_stdout()
+    try:
+        ensure_ca_bundle()  # before the adapter's imports make an SSL context
+    except Exception:  # noqa: BLE001 - a Python without ssl still serves adapters
+        pass
     path = os.path.abspath(os.fspath(path))
     sys.path.insert(0, os.path.dirname(path))
     spec = importlib.util.spec_from_file_location("ps_isolated_adapter", path)
