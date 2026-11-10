@@ -1,8 +1,11 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T11:13:27.263754Z
-commit_sha,30c65173a30fd534a92c7e30765234628dc9f8b4
-commit_message,Merge 4c89bd5cec39887cab5961c2b495631bda16702b into 4a647d865754c533cf0abcdaf7d0203cb46ed0b1
+timestamp,2026-11-10T11:13:28.887176Z
+commit_sha,4c89bd5cec39887cab5961c2b495631bda16702b
+commit_message,"ps.isolated: Worker resolves a relative adapter path against the host's directory
+
+The worker runs in another directory (an empty temporary one by default), so a
+relative adapter path given by the host would not be found there."
 python_version,3.10
 metrics.umpyre_stats.num_functions,4538
 metrics.umpyre_stats.num_classes,1264
@@ -36,4 +39,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.3377647399902344
+collection_duration_seconds,2.5905373096466064
