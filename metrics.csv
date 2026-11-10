@@ -1,8 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:19:03.449207Z
-commit_sha,6a38457167619dc3088f515c3c8f89270bc19453
-commit_message,"GitSource review fixes: Windows read-only cleanup, strip only git's location vars and never prompt, blobless fallback when a server refuses a SHA, cached and non-locking check, env_var roots warn, private lock, SHA-256"
+timestamp,2026-11-10T14:19:07.315248Z
+commit_sha,21ef40cbe27463f7c1d9a0370b1a9cbebd8f6202
+commit_message,Merge 6a38457167619dc3088f515c3c8f89270bc19453 into 5662cf2f7a2233acd77d6155cf40140e5d107e49
 python_version,3.10
 metrics.umpyre_stats.num_functions,4551
 metrics.umpyre_stats.num_classes,1266
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.488743305206299
+collection_duration_seconds,2.9595046043395996
