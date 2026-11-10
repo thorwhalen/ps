@@ -1,21 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:30:10.510975Z
+timestamp,2026-11-10T10:30:13.551500Z
 commit_sha,f353ecd0b82b7b4fbda280e674072326249c422e
 commit_message,tests: Windows-safe fake install names; log tail may end in CRLF
 python_version,3.10
-metrics.umpyre_stats.num_functions,4537
-metrics.umpyre_stats.num_classes,1264
-metrics.umpyre_stats.total_lines,203750
-metrics.umpyre_stats.empty_lines,23051
-metrics.umpyre_stats.comment_lines,10846
-metrics.umpyre_stats.docs_lines,15210
-metrics.umpyre_stats.function_lines,72812
-metrics.umpyre_stats.empty_lines_ratio,0.11313374233128834
-metrics.umpyre_stats.comment_lines_ratio,0.0532319018404908
-metrics.umpyre_stats.function_lines_ratio,0.35735950920245396
-metrics.umpyre_stats.mean_lines_per_function,16.048490191756667
-metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.num_functions,4840
+metrics.umpyre_stats.num_classes,1325
+metrics.umpyre_stats.total_lines,210133
+metrics.umpyre_stats.empty_lines,24100
+metrics.umpyre_stats.comment_lines,11279
+metrics.umpyre_stats.docs_lines,16135
+metrics.umpyre_stats.function_lines,77282
+metrics.umpyre_stats.empty_lines_ratio,0.11468926822536203
+metrics.umpyre_stats.comment_lines_ratio,0.05367552930762898
+metrics.umpyre_stats.function_lines_ratio,0.36777659863039125
+metrics.umpyre_stats.mean_lines_per_function,15.967355371900826
+metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.14
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-10T10:28:20Z
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.414196252822876
+collection_duration_seconds,3.070374011993408
