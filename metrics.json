@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.5511646270751953,
-  "commit_message": "env cli: drop the mounted-parser API for build_envs/env_status (voxy calls build_envs), build prints bare interpreters (denote's output), names required, compile_lock takes torch_backend, hashed lines refused",
-  "commit_sha": "8569a86d06055ef9a3dba45a9b976bb032f7bcce",
+  "collection_duration_seconds": 2.4274086952209473,
+  "commit_message": "Merge 8569a86d06055ef9a3dba45a9b976bb032f7bcce into 25b9e38f04ec0e31c9dfe7be7ed7411291147b5c",
+  "commit_sha": "c1c235884b542d0cb22b9399aff8e7fa5a0719c8",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10867,
-      "comment_lines_ratio": 0.05313780524776779,
-      "docs_lines": 15389,
-      "empty_lines": 23145,
-      "empty_lines_ratio": 0.11317516356488318,
-      "files_analyzed": 522,
-      "function_lines": 73426,
-      "function_lines_ratio": 0.3590408105385661,
-      "mean_lines_per_function": 16.09866257399693,
-      "num_classes": 1266,
-      "num_functions": 4561,
-      "pypi_version": "0.1.17",
-      "total_lines": 204506
+      "comment_lines": 11300,
+      "comment_lines_ratio": 0.05358269042007881,
+      "docs_lines": 16314,
+      "empty_lines": 24194,
+      "empty_lines_ratio": 0.11472385947109617,
+      "files_analyzed": 533,
+      "function_lines": 77896,
+      "function_lines_ratio": 0.3693696684037574,
+      "mean_lines_per_function": 16.01480263157895,
+      "num_classes": 1327,
+      "num_functions": 4864,
+      "pypi_version": "0.1.18",
+      "total_lines": 210889
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -34,14 +34,14 @@
     },
     "workflow_status": {
       "last_run_status": "success",
-      "last_success_timestamp": "2026-11-10T14:46:55Z",
+      "last_success_timestamp": "2026-11-10T14:47:46Z",
       "recent_failure_count": 2,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42837437234",
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42837494652",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:47:40.600476Z",
+  "timestamp": "2026-11-10T14:49:31.062741Z",
   "workflow_status": {}
 }
