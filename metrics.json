@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.849865674972534,
-  "commit_message": "Doctest: match ls's help case-insensitively (uutils coreutils on ubuntu-26.04 capitalises it)",
-  "commit_sha": "44fed4e52b140947cd1433434341898f3fda39b9",
+  "collection_duration_seconds": 3.0730741024017334,
+  "commit_message": "Merge 44fed4e52b140947cd1433434341898f3fda39b9 into e03aee4fc01c729b0af02e1cdfa0b54080e30389",
+  "commit_sha": "a0a8244cab8f7c703ca6fc6c6feb8015679c2d06",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T10:06:16.729303Z",
+  "timestamp": "2026-11-10T10:06:20.072493Z",
   "workflow_status": {}
 }

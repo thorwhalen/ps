@@ -1,8 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:06:16.729303Z
-commit_sha,44fed4e52b140947cd1433434341898f3fda39b9
-commit_message,Doctest: match ls's help case-insensitively (uutils coreutils on ubuntu-26.04 capitalises it)
+timestamp,2026-11-10T10:06:20.072493Z
+commit_sha,a0a8244cab8f7c703ca6fc6c6feb8015679c2d06
+commit_message,Merge 44fed4e52b140947cd1433434341898f3fda39b9 into e03aee4fc01c729b0af02e1cdfa0b54080e30389
 python_version,3.10
 metrics.umpyre_stats.num_functions,4843
 metrics.umpyre_stats.num_classes,1326
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.849865674972534
+collection_duration_seconds,3.0730741024017334
