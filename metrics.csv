@@ -1,40 +1,46 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T15:10:47.778331Z
-commit_sha,497292b05941234eff493a5ec56cdce061753f85
-commit_message,"README: environments command line and CA bundle fix (#23)
+timestamp,2026-11-10T20:11:44.519240Z
+commit_sha,626a06c488f6686a6173858605a212ac2c8db838
+commit_message,"wait_and_reap: kill what a process started however it ends; start_time
 
-* README: the environments command line and the CA bundle fix in ps.isolated
-
-* README wording: locks are functions; lock_requirements gives requirements"
+kill_process_tree reads the tree below a live process, so a process that exits on
+its own (a crash, or between a timeout and the kill) leaves its re-parented
+workers running. wait_and_reap watches the tree while waiting and, after any
+exit, kills the descendants it saw that are still the same processes (start
+time), plus orphans in the process's own group. First customer: arioso compare
+(thorwhalen/arioso#67)."
 python_version,3.10
-metrics.umpyre_stats.num_functions,4564
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204586
-metrics.umpyre_stats.empty_lines,23156
-metrics.umpyre_stats.comment_lines,10868
-metrics.umpyre_stats.docs_lines,15407
-metrics.umpyre_stats.function_lines,73507
-metrics.umpyre_stats.empty_lines_ratio,0.11318467539323317
-metrics.umpyre_stats.comment_lines_ratio,0.05312191450050346
-metrics.umpyre_stats.function_lines_ratio,0.3592963350375881
-metrics.umpyre_stats.mean_lines_per_function,16.105828220858896
-metrics.umpyre_stats.files_analyzed,522
-metrics.umpyre_stats.pypi_version,0.1.19
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-10T15:08:54Z
-metrics.workflow_status.recent_failure_count,5
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42841386814
+metrics.umpyre_stats.num_functions,4875
+metrics.umpyre_stats.num_classes,1327
+metrics.umpyre_stats.total_lines,211119
+metrics.umpyre_stats.empty_lines,24234
+metrics.umpyre_stats.comment_lines,11303
+metrics.umpyre_stats.docs_lines,16375
+metrics.umpyre_stats.function_lines,78139
+metrics.umpyre_stats.empty_lines_ratio,0.1147883421198471
+metrics.umpyre_stats.comment_lines_ratio,0.05353852566561986
+metrics.umpyre_stats.function_lines_ratio,0.37011827452763607
+metrics.umpyre_stats.mean_lines_per_function,16.02851282051282
+metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.pypi_version,0.1.21
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T15:12:03Z
+metrics.workflow_status.recent_failure_count,3
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42841746974
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
 metrics.wily.total_loc,0
 metrics.wily.files_analyzed,0
-metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
+metrics.wily.error,"wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...
+Try 'wily report --help' for help.
+
+Error: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.
 "
 metrics.coverage.line_coverage,0.0
 metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.5068328380584717
+collection_duration_seconds,2.699317693710327
