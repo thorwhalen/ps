@@ -239,6 +239,24 @@ So now we have:
     >>> isinstance(output, str)  # it's already decoded for us!
     True
 
+# Running code in another Python environment: `ps.isolated`
+
+When a library cannot share your environment (it pins its own torch, numpy or MLX), `ps.isolated` runs it in its own environment and talks to it, with the standard library only.
+
+```python
+from ps.isolated import EnvSpec, ensure_env, Worker
+
+# Build an environment once with uv (a changed spec rebuilds it).
+python = ensure_env(EnvSpec("tool", ("numpy<2",)), "~/envs/tool")
+
+# my_adapter.py defines load(**init) -> state and operations op(state, **kw) -> dict;
+# it imports nothing from your code, and ps need not be installed in that environment.
+with Worker(python, "my_adapter.py", init={"size": "small"}) as w:
+    w.call("analyze", path="clip.wav")   # the model loads once, on the first call
+```
+
+A worker stays alive between calls, keeps library output away from its JSON-lines protocol, writes its stderr to a log whose tail goes into errors, and is killed and restarted after an interrupted exchange. A driver can also be a module (`Worker(python, "pkg.driver", expose=("pkg", "ps"))`, the module calling `ps.isolated.serve(handle)`). `Runtime` locates a hand-installed environment and raises `RuntimeNotInstalled` with its install commands; `run_process` is the one-shot alternative. See the module docstring for the full API.
+
 # Misc tools 
 
 ## ps.misc.run_commands_in_dir
