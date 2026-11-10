@@ -843,7 +843,11 @@ def env_status(
         except Exception as error:  # noqa: BLE001 - one broken spec must not hide the rest
             yield name, f"no spec ({type(error).__name__}: {error})", folder
             continue
-        yield name, "built" if is_env_ready(spec, folder, marker=marker) else "not built", folder
+        yield (
+            name,
+            "built" if is_env_ready(spec, folder, marker=marker) else "not built",
+            folder,
+        )
 
 
 def cli(
@@ -902,17 +906,28 @@ def cli(
     parser = argparse.ArgumentParser(prog=prog, description="Isolated environments.")
     commands = parser.add_subparsers(dest="command", required=True)
     build_cmd = commands.add_parser("build", help="build environments")
-    build_cmd.add_argument("names", nargs="+", choices=list(specs), metavar="name",
-                           help="{" + ",".join(specs) + "}")
+    build_cmd.add_argument(
+        "names",
+        nargs="+",
+        choices=list(specs),
+        metavar="name",
+        help="{" + ",".join(specs) + "}",
+    )
     commands.add_parser("status", help="where each environment is, and if it is built")
     if locks:
         lock_cmd = commands.add_parser("lock", help="re-resolve locks (needs uv)")
-        lock_cmd.add_argument("names", nargs="+", choices=list(locks), metavar="name",
-                              help="{" + ",".join(locks) + "}")
+        lock_cmd.add_argument(
+            "names",
+            nargs="+",
+            choices=list(locks),
+            metavar="name",
+            help="{" + ",".join(locks) + "}",
+        )
     args = parser.parse_args(None if argv is None else list(argv))
     if args.command == "build":
-        for _, python in build_envs(args.names, specs, env_dir=env_dir, build=build,
-                                    marker=marker):
+        for _, python in build_envs(
+            args.names, specs, env_dir=env_dir, build=build, marker=marker
+        ):
             out(str(python))
     elif args.command == "lock":
         for name in args.names:
