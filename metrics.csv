@@ -1,29 +1,29 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T11:13:28.887176Z
+timestamp,2026-11-10T11:13:40.143703Z
 commit_sha,4c89bd5cec39887cab5961c2b495631bda16702b
 commit_message,"ps.isolated: Worker resolves a relative adapter path against the host's directory
 
 The worker runs in another directory (an empty temporary one by default), so a
 relative adapter path given by the host would not be found there."
 python_version,3.10
-metrics.umpyre_stats.num_functions,4538
-metrics.umpyre_stats.num_classes,1264
-metrics.umpyre_stats.total_lines,203813
-metrics.umpyre_stats.empty_lines,23059
-metrics.umpyre_stats.comment_lines,10850
-metrics.umpyre_stats.docs_lines,15233
-metrics.umpyre_stats.function_lines,72860
-metrics.umpyre_stats.empty_lines_ratio,0.11313802358043894
-metrics.umpyre_stats.comment_lines_ratio,0.053235073327020356
-metrics.umpyre_stats.function_lines_ratio,0.3574845569222768
-metrics.umpyre_stats.mean_lines_per_function,16.05553107095637
-metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.num_functions,4841
+metrics.umpyre_stats.num_classes,1325
+metrics.umpyre_stats.total_lines,210196
+metrics.umpyre_stats.empty_lines,24108
+metrics.umpyre_stats.comment_lines,11283
+metrics.umpyre_stats.docs_lines,16158
+metrics.umpyre_stats.function_lines,77330
+metrics.umpyre_stats.empty_lines_ratio,0.11469295324363928
+metrics.umpyre_stats.comment_lines_ratio,0.05367847152181773
+metrics.umpyre_stats.function_lines_ratio,0.36789472682639063
+metrics.umpyre_stats.mean_lines_per_function,15.973972319768643
+metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.15
 metrics.workflow_status.last_run_status,success
-metrics.workflow_status.last_success_timestamp,2026-11-10T10:45:41Z
+metrics.workflow_status.last_success_timestamp,2026-11-10T11:13:35Z
 metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42801765468
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42805546694
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -39,4 +39,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.5905373096466064
+collection_duration_seconds,3.4707417488098145

@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.5905373096466064,
+  "collection_duration_seconds": 3.4707417488098145,
   "commit_message": "ps.isolated: Worker resolves a relative adapter path against the host's directory\n\nThe worker runs in another directory (an empty temporary one by default), so a\nrelative adapter path given by the host would not be found there.",
   "commit_sha": "4c89bd5cec39887cab5961c2b495631bda16702b",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10850,
-      "comment_lines_ratio": 0.053235073327020356,
-      "docs_lines": 15233,
-      "empty_lines": 23059,
-      "empty_lines_ratio": 0.11313802358043894,
-      "files_analyzed": 522,
-      "function_lines": 72860,
-      "function_lines_ratio": 0.3574845569222768,
-      "mean_lines_per_function": 16.05553107095637,
-      "num_classes": 1264,
-      "num_functions": 4538,
+      "comment_lines": 11283,
+      "comment_lines_ratio": 0.05367847152181773,
+      "docs_lines": 16158,
+      "empty_lines": 24108,
+      "empty_lines_ratio": 0.11469295324363928,
+      "files_analyzed": 533,
+      "function_lines": 77330,
+      "function_lines_ratio": 0.36789472682639063,
+      "mean_lines_per_function": 15.973972319768643,
+      "num_classes": 1325,
+      "num_functions": 4841,
       "pypi_version": "0.1.15",
-      "total_lines": 203813
+      "total_lines": 210196
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -34,14 +34,14 @@
     },
     "workflow_status": {
       "last_run_status": "success",
-      "last_success_timestamp": "2026-11-10T10:45:41Z",
+      "last_success_timestamp": "2026-11-10T11:13:35Z",
       "recent_failure_count": 2,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42801765468",
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42805546694",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T11:13:28.887176Z",
+  "timestamp": "2026-11-10T11:13:40.143703Z",
   "workflow_status": {}
 }
