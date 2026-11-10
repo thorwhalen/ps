@@ -104,18 +104,84 @@ NEW_PROCESS_GROUP = {} if os.name == "nt" else {"start_new_session": True}
 _LIBPROC: list = []
 
 
-def _darwin_children(pid: int) -> list:
+def _libproc():
+    """macOS's libproc, loaded once (``None`` if it cannot be found)."""
     import ctypes
     import ctypes.util
 
     if not _LIBPROC:
         path = ctypes.util.find_library("proc")
-        _LIBPROC.append(ctypes.CDLL(path) if path else None)
-    if _LIBPROC[0] is None:
+        lib = ctypes.CDLL(path) if path else None
+        if lib is not None:
+            lib.proc_pidinfo.argtypes = [
+                ctypes.c_int,
+                ctypes.c_int,
+                ctypes.c_uint64,
+                ctypes.c_void_p,
+                ctypes.c_int,
+            ]
+        _LIBPROC.append(lib)
+    return _LIBPROC[0]
+
+
+def _darwin_children(pid: int) -> list:
+    import ctypes
+
+    lib = _libproc()
+    if lib is None:
         return []
     buf = (ctypes.c_int * 4096)()  # proc_listchildpids returns a count of pids
-    n = _LIBPROC[0].proc_listchildpids(int(pid), buf, ctypes.sizeof(buf))
+    n = lib.proc_listchildpids(int(pid), buf, ctypes.sizeof(buf))
     return [p for p in buf[: max(n, 0)] if p > 0]
+
+
+# struct proc_bsdinfo (sys/proc_info.h): 136 bytes; pbi_start_tvsec, pbi_start_tvusec
+# (two uint64) sit at offset 120. Flavour PROC_PIDTBSDINFO is 3.
+_PROC_PIDTBSDINFO, _BSDINFO_SIZE, _BSDINFO_START = 3, 136, 120
+
+
+def _darwin_start_time(pid: int):
+    import ctypes
+    import struct
+
+    lib = _libproc()
+    if lib is None:
+        return None
+    buf = ctypes.create_string_buffer(_BSDINFO_SIZE)
+    n = lib.proc_pidinfo(int(pid), _PROC_PIDTBSDINFO, 0, buf, _BSDINFO_SIZE)
+    if n != _BSDINFO_SIZE:
+        return None
+    return struct.unpack_from("QQ", buf.raw, _BSDINFO_START)
+
+
+def start_time(pid: int):
+    """When process ``pid`` started, as an opaque value to compare, or ``None`` if unknown.
+
+    Two readings are equal only for the same process, so a pid that now belongs to a
+    later process can be told apart from the one first seen under it. Starts no
+    process: ``proc_pidinfo`` on macOS, ``/proc/<pid>/stat`` on Linux; ``None`` for a
+    process that is gone, and always ``None`` elsewhere.
+
+    >>> import os, sys
+    >>> mine = start_time(os.getpid())
+    >>> mine == start_time(os.getpid())
+    True
+    >>> mine is not None or sys.platform not in ("darwin", "linux")
+    True
+    """
+    import sys
+
+    if sys.platform.startswith("linux"):
+        try:
+            with open(f"/proc/{int(pid)}/stat") as f:
+                stat = f.read()
+        except OSError:
+            return None
+        fields = stat[stat.rfind(")") + 2 :].split()
+        return fields[19] if len(fields) > 19 else None  # field 22: starttime, in ticks
+    if sys.platform == "darwin":
+        return _darwin_start_time(pid)
+    return None
 
 
 def _linux_children_map() -> dict:
@@ -234,17 +300,7 @@ def kill_process_tree(process):
         reaped = process.returncode is not None
         own, me = os.getpgrp(), os.getpid()
         if not reaped:
-            first = [p for p in [process.pid, *descendants(process.pid)] if p != me]
-            tree = first
-            try:
-                _signal_tree(first, signal.SIGSTOP, own_group=own)
-                tree = [
-                    p
-                    for p in dict.fromkeys(first + descendants(process.pid))
-                    if p != me
-                ]
-            finally:  # whatever happens, nothing is left stopped
-                _signal_tree(tree, signal.SIGKILL, own_group=own)
+            _kill_trees([process.pid])
         if not reaped or not _pid_alive(process.pid):
             try:  # orphans still in the group (its id cannot be reused while it has members)
                 if process.pid not in (own, me):
@@ -263,6 +319,105 @@ def _pid_alive(pid: int) -> bool:
     except OSError:  # alive, not ours
         return True
     return True
+
+
+def _kill_trees(roots) -> None:
+    """Stop ``roots`` and everything below them, read the trees again, and kill every
+    group found (POSIX); the caller is never signalled, nor its group as a whole."""
+    import signal
+
+    own, me = os.getpgrp(), os.getpid()
+
+    def tree():
+        found = list(roots)
+        for root in roots:
+            found += descendants(root)
+        return [p for p in dict.fromkeys(found) if p != me]
+
+    first = everything = tree()
+    try:
+        _signal_tree(first, signal.SIGSTOP, own_group=own)
+        everything = list(dict.fromkeys(first + tree()))
+    finally:  # whatever happens, nothing is left stopped
+        _signal_tree(everything, signal.SIGKILL, own_group=own)
+
+
+def wait_and_reap(process, *, timeout=None, interval=0.25):
+    """Wait for ``process`` to exit, then kill whatever it started that outlived it.
+
+    :func:`kill_process_tree` reads the tree below a *live* process, so it cannot
+    help once the process has ended on its own (a crash, an ``os._exit``), or ended
+    between a timeout and the kill: by then its children have been re-parented and
+    are in nobody's tree. So while waiting, a thread reads the tree every
+    ``interval`` seconds and remembers each descendant with its :func:`start_time`.
+    However ``process`` ends, the remembered ones still alive under the same start
+    time (not a later process given a recycled pid) are killed, with their own
+    descendants and the groups they lead (``ps.isolated`` workers lead sessions of
+    their own); so are orphans left in ``process``'s own group, provided it was
+    started with :data:`NEW_PROCESS_GROUP`. Everything ``process`` started is taken
+    to be its to clean up: do not use this for a process that is meant to leave a
+    daemon behind.
+
+    Returns the exit code. On timeout, kills the tree (:func:`kill_process_tree`)
+    and the survivors, then raises ``subprocess.TimeoutExpired``.
+
+    Limits: a descendant that starts and is orphaned within one ``interval`` is not
+    seen (only its group, if it stayed in ``process``'s); a process whose start time
+    cannot be read (another user's: one started through ``sudo``, say) is never killed
+    as a survivor. On Windows the tree is not read (:func:`descendants` is empty
+    there), so only ``taskkill /T`` on timeout or interruption applies.
+
+    >>> import subprocess, sys
+    >>> child = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_PROCESS_GROUP)
+    >>> wait_and_reap(child, timeout=30)
+    0
+    """
+    import threading
+
+    timeout = _validated_timeout(timeout)
+    if not interval > 0:
+        raise ValueError(f"interval should be a positive number of seconds. Got: {interval!r}")
+    seen = set()  # (pid, start time) pairs: a recycled pid is a new pair
+    stop = threading.Event()
+
+    def watch():
+        while process.returncode is None:  # once reaped, its pid may be someone else's
+            try:
+                for pid in descendants(process.pid):
+                    started = start_time(pid)
+                    if started is not None:
+                        seen.add((pid, started))
+            except Exception:  # noqa: BLE001 - a missed reading must not break the wait
+                pass
+            if stop.wait(interval):
+                return
+
+    watcher = None
+    if os.name != "nt":  # descendants() reads nothing there
+        watcher = threading.Thread(target=watch, name="wait_and_reap", daemon=True)
+        watcher.start()
+
+    def reap():
+        stop.set()
+        if watcher is not None:
+            watcher.join()
+            survivors = [pid for pid, started in seen if start_time(pid) == started]
+            if survivors:
+                _kill_trees(survivors)
+        kill_process_tree(process)  # orphans in its group; ``process`` if still alive
+
+    try:
+        code = process.wait(timeout=timeout)
+    except BaseException:  # a timeout, and Ctrl-C too: the child is in its own session
+        kill_process_tree(process)
+        try:
+            process.wait(timeout=_REAP_TIMEOUT)
+        except TimeoutExpired:  # stuck in the kernel: leave it, the kill is sent
+            pass
+        reap()
+        raise
+    reap()
+    return code
 
 
 def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT, kill=None):
