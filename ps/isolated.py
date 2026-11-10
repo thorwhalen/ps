@@ -808,17 +808,18 @@ def build_envs(
     Args:
         names: Which of ``specs`` to build (all of them: ``list(specs)``).
         specs: name -> :class:`EnvSpec`, or a function making it (called when needed).
-        env_dir: name -> the environment's folder (``~`` expanded).
+        env_dir: name -> the environment's folder (``~`` expanded), passed to ``build``.
         build: ``(spec, folder) -> python``; default :func:`ensure_env` with ``marker``.
+            A host whose own build finds the folder itself may ignore ``folder``.
         marker: The marker file of the host's environments.
 
     Raises:
-        KeyError: A name not in ``specs`` (checked before anything is built).
+        ValueError: A name not in ``specs`` (checked before anything is built).
     """
     names = list(names)
     unknown = [n for n in names if n not in specs]
     if unknown:
-        raise KeyError(f"unknown environments {unknown}; choose from {list(specs)}")
+        raise ValueError(f"unknown environments {unknown}; choose from {list(specs)}")
     build = build or (lambda spec, path: ensure_env(spec, path, marker=marker))
     for name in names:
         yield name, build(_make_spec(specs[name]), Path(env_dir(name)).expanduser())
@@ -838,11 +839,11 @@ def env_status(
     for name, source in specs.items():
         folder = Path(env_dir(name)).expanduser()
         try:
-            ready = is_env_ready(_make_spec(source), folder, marker=marker)
+            spec = _make_spec(source)
         except Exception as error:  # noqa: BLE001 - one broken spec must not hide the rest
             yield name, f"no spec ({type(error).__name__}: {error})", folder
             continue
-        yield name, "built" if ready else "not built", folder
+        yield name, "built" if is_env_ready(spec, folder, marker=marker) else "not built", folder
 
 
 def cli(

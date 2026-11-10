@@ -64,7 +64,7 @@ def test_build_envs_checks_every_name_first_and_makes_lazy_specs_on_demand(tmp_p
     built = []
     specs = {"a": EnvSpec("a", ()), "b": broken}
     fake = lambda s, p: built.append(s.name) or p
-    with pytest.raises(KeyError, match="unknown environments \\['z'\\]"):
+    with pytest.raises(ValueError, match="unknown environments \\['z'\\]"):
         list(build_envs(["a", "z"], specs, env_dir=lambda n: tmp_path / n, build=fake))
     assert built == []  # nothing built before the bad name was found
     list(build_envs(["a"], specs, env_dir=lambda n: tmp_path / n, build=fake))
