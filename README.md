@@ -262,7 +262,9 @@ Code that is a git checkout rather than a package is pinned to one commit with `
 ```python
 from ps.isolated import GitSource, ensure_git_source
 
-repo = ensure_git_source(GitSource("https://github.com/org/model", "<40-hex sha>"), "~/models/model")
+repo = ensure_git_source(
+    GitSource("https://github.com/org/model", "<40-hex sha>"), "~/models/model"
+)
 ```
 
 # Misc tools 

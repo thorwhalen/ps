@@ -191,11 +191,21 @@ _LOCK_POLL_S = 0.5
 #: --local-env-vars``): a caller's (a git hook's, say) must not reach our commands.
 #: Credentials and transport settings (``GIT_SSH_COMMAND``, ``GIT_ASKPASS``) are kept.
 GIT_LOCATION_VARS = (
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS",
-    "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE",
-    "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_INDEX_FILE",
-    "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
-    "GIT_SHALLOW_FILE", "GIT_COMMON_DIR",
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_CONFIG",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_DIR",
+    "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE",
+    "GIT_GRAFT_FILE",
+    "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS",
+    "GIT_REPLACE_REF_BASE",
+    "GIT_PREFIX",
+    "GIT_SHALLOW_FILE",
+    "GIT_COMMON_DIR",
 )
 #: What a server says when it will not send one commit by its SHA.
 _SHA_REFUSED = ("not our ref", "unadvertised object", "does not allow request")
@@ -242,7 +252,17 @@ class GitSource:
         path = str(path)
         return (
             ("git", "init", "--quiet", path),
-            ("git", "-C", path, "fetch", "--quiet", "--depth", "1", self.url, self.commit),
+            (
+                "git",
+                "-C",
+                path,
+                "fetch",
+                "--quiet",
+                "--depth",
+                "1",
+                self.url,
+                self.commit,
+            ),
             ("git", "-C", path, "checkout", "--quiet", "--detach", self.commit),
         )
 
@@ -250,7 +270,9 @@ class GitSource:
 def _git_environ() -> dict:
     env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION_VARS}
     if "GIT_SSH_COMMAND" not in env and "GIT_SSH" not in env:
-        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"  # no host-key or passphrase prompt
+        env["GIT_SSH_COMMAND"] = (
+            "ssh -o BatchMode=yes"  # no host-key or passphrase prompt
+        )
     return {**env, **_GIT_NO_PROMPT}
 
 
@@ -258,7 +280,11 @@ def _git(run: Callable, *args: str) -> str:
     """``git args...`` (see :func:`_git_environ`); its stdout, stripped."""
     try:
         done = run(
-            ["git", *args], check=True, capture_output=True, text=True, env=_git_environ()
+            ["git", *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=_git_environ(),
         )
     except FileNotFoundError:
         raise RuntimeNotInstalled("This needs git: https://git-scm.com") from None
@@ -405,8 +431,16 @@ def _fetch_git_source(source: GitSource, path: Path, *, run, log) -> None:
         if not any(sign in str(error) for sign in _SHA_REFUSED):
             raise  # a wrong URL, no access: the first error is the one to see
         refs = ("+refs/heads/*:refs/remotes/origin/*", "+refs/tags/*:refs/tags/*")
-        _git(run, "-C", str(partial), "fetch", "--quiet", "--filter=blob:none",
-             source.url, *refs)
+        _git(
+            run,
+            "-C",
+            str(partial),
+            "fetch",
+            "--quiet",
+            "--filter=blob:none",
+            source.url,
+            *refs,
+        )
         try:
             _git(run, "-C", str(partial), "cat-file", "-e", source.commit + "^{commit}")
         except RuntimeError:
