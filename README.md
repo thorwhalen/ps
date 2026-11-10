@@ -257,7 +257,7 @@ with Worker(python, "my_adapter.py", init={"size": "small"}) as w:
 
 A worker stays alive between calls, keeps library output away from its JSON-lines protocol, writes its stderr to a log whose tail goes into errors (or to your terminal with `stderr=None`), and is killed and restarted after an interrupted exchange. `Runtime` locates an environment installed by hand and raises `RuntimeNotInstalled` with its install commands; `run_process` is the one-shot alternative. See the module docstring for the full API.
 
-Code that is a git checkout rather than a package is pinned to one commit with `GitSource` (a full 40-character SHA): `ensure_git_source(source, path)` fetches only that commit, once, and checks it on every reuse (same commit, no edits to tracked files); `Runtime(..., source=source)` puts the pinned fetch in its install commands and refuses a root at another commit.
+Code that is a git checkout rather than a package is pinned to one commit with `GitSource` (a full commit SHA): `ensure_git_source(source, path)` fetches only that commit, once, and checks it on every reuse (same commit, no edits to tracked files); `Runtime(..., source=source)` puts the pinned fetch in its install commands and refuses a root at another commit.
 
 ```python
 from ps.isolated import GitSource, ensure_git_source
@@ -266,6 +266,20 @@ repo = ensure_git_source(
     GitSource("https://github.com/org/model", "<40-hex sha>"), "~/models/model"
 )
 ```
+
+A host with several named environments gets a command line in a few lines: `cli(specs, env_dir=...)` gives `build name ...`, `status`, and `lock name ...` (with `locks=`, where each lock is a function, typically `compile_lock` bound to the environment's top-level requirements and its spec's Python and `torch_backend`; `lock_requirements` reads a lock back into a spec's requirements). `build_envs` and `env_status` are its parts, for a host that keeps its own parser.
+
+```python
+import sys
+from ps import isolated
+
+SPECS = {"tool": isolated.EnvSpec("tool", ("numpy<2",))}
+
+if __name__ == "__main__":
+    sys.exit(isolated.cli(SPECS, env_dir=lambda name: f"~/envs/{name}", prog="python -m mypkg.envs"))
+```
+
+Workers also cope with an interpreter whose OpenSSL has no CA certificates (a MacPorts or Homebrew Python without its CA file): `serve_adapter` points `SSL_CERT_FILE` at the system bundle, or certifi's, before the adapter loads, so `urllib` HTTPS verifies. A bundle you set yourself wins, and Windows is left to its system store.
 
 # Misc tools 
 
