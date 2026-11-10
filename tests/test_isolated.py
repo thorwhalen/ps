@@ -758,3 +758,9 @@ def test_kill_does_not_wait_on_a_reply_pipe_held_outside_the_group(echo, tmp_pat
     assert time.monotonic() - started < 2
     caller.join(10)  # its reader sees EOF once the escaped child ends
     assert not caller.is_alive()
+
+
+def test_a_relative_python_path_is_resolved_against_the_host_directory(tmp_path):
+    w = Worker(os.path.join("envs", "x", "bin", "python"), tmp_path / "a.py")
+    assert w.python == os.path.abspath(os.path.join("envs", "x", "bin", "python"))
+    assert Worker("python3", tmp_path / "a.py").python == "python3"  # PATH lookup kept

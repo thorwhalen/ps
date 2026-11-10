@@ -766,7 +766,8 @@ class Worker:
     stdin closes, once the operation it is running returns.
 
     Args:
-        python: The environment's interpreter.
+        python: The environment's interpreter; a relative path is resolved against
+            the host's working directory, a bare name is looked up on ``PATH``.
         adapter: The adapter file (``load`` plus operations); a relative path is
             resolved against the host's working directory.
         init: Keyword arguments of the adapter's ``load`` (sent on start).
@@ -790,7 +791,11 @@ class Worker:
         spawn: Callable[..., subprocess.Popen] = subprocess.Popen,
     ):
         # absolute: the process runs in another directory (an empty one by default)
-        self.python = str(python)
+        python = os.fspath(python)
+        # a path (not a bare name looked up on PATH) is resolved against the host's
+        # directory, like the adapter: Popen would resolve it against ``cwd``
+        has_sep = os.sep in python or (os.altsep and os.altsep in python)
+        self.python = os.path.abspath(python) if has_sep else python
         self.adapter = os.path.abspath(os.fspath(adapter))
         self.name = Path(self.adapter).stem
         self.init = dict(init or {})

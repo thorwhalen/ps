@@ -101,14 +101,100 @@ def _validated_timeout(timeout):
 NEW_PROCESS_GROUP = {} if os.name == "nt" else {"start_new_session": True}
 
 
-def kill_process_tree(process):
-    """Kill ``process`` and everything it spawned.
+def _darwin_children(pid: int) -> list:
+    import ctypes
+    import ctypes.util
 
-    On POSIX the process must have been started with :data:`NEW_PROCESS_GROUP`:
-    its whole group is killed, even when ``process`` itself already exited (its
-    children may live on). On Windows ``taskkill /T`` follows the tree from a live
-    ``process``; children it left behind when it exited cannot be found that way.
-    ``process`` itself is killed in any case.
+    path = ctypes.util.find_library("proc")
+    if not path:
+        return []
+    buf = (ctypes.c_int * 4096)()
+    n = ctypes.CDLL(path).proc_listchildpids(int(pid), buf, ctypes.sizeof(buf))
+    return [p for p in buf[: max(n, 0)] if p > 0]
+
+
+def _linux_children_map() -> dict:
+    """Parent pid -> child pids, from one scan of ``/proc``."""
+    tree = {}
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat") as f:
+                stat = f.read()
+        except OSError:
+            continue  # exited while we looked
+        # the command name may hold spaces and parentheses: ppid follows the last ')'
+        fields = stat[stat.rfind(")") + 2 :].split()
+        if len(fields) > 1:
+            tree.setdefault(int(fields[1]), []).append(int(entry))
+    return tree
+
+
+def descendants(pid=None) -> list:
+    """The live process ids below ``pid`` (default: this process), children first.
+
+    Starts no process: ``proc_listchildpids`` on macOS, one scan of ``/proc`` on
+    Linux; an empty list elsewhere (Windows: ``taskkill /T`` follows the tree itself).
+
+    >>> descendants(os.getpid()) == [] or isinstance(descendants(), list)
+    True
+    """
+    import sys
+
+    pid = os.getpid() if pid is None else pid
+    if sys.platform == "darwin":
+        children = _darwin_children
+    elif sys.platform.startswith("linux"):
+        tree = _linux_children_map()
+        children = lambda p: tree.get(p, [])  # noqa: E731
+    else:
+        return []
+    found, frontier = [], [pid]
+    while frontier:
+        kids = children(frontier.pop(0))
+        found += kids
+        frontier += kids
+    return found
+
+
+def _signal_tree(pids, sig, *, own_group) -> None:
+    """Send ``sig`` to the groups ``pids`` lead or belong to, but only to the processes
+    themselves when they are in ``own_group`` (the caller's: never signalled whole)."""
+    groups, loose = set(), []
+    for pid in pids:
+        try:
+            group = os.getpgid(pid)
+        except OSError:  # gone, or not ours to look at
+            continue
+        (loose.append(pid) if group == own_group else groups.add(group))
+    for group in groups:
+        try:
+            os.killpg(group, sig)
+        except OSError:
+            pass
+    for pid in loose:
+        try:
+            os.kill(pid, sig)
+        except OSError:
+            pass
+
+
+def kill_process_tree(process):
+    """Kill ``process`` and everything it spawned, including processes in sessions of their own.
+
+    On POSIX the tree below a live ``process`` is read first (:func:`descendants`),
+    every process in it is stopped (so none can start another), the tree is read
+    again, and then every process group found is killed (``ps.isolated`` workers,
+    say, which lead groups of their own); processes in the caller's own group are
+    killed one by one, never the group. ``process``'s own group is killed too,
+    reaching orphans it left behind, provided ``process`` was started with
+    :data:`NEW_PROCESS_GROUP`. If ``process`` had already been reaped and its pid
+    is alive again, that pid is another process now, and its group is left alone.
+
+    On Windows ``taskkill /T`` follows the tree from a live ``process``; children it
+    left behind when it exited cannot be found that way. ``process`` itself is
+    killed in any case.
     """
     if os.name == "nt":
         if process.poll() is None:
@@ -125,12 +211,33 @@ def kill_process_tree(process):
     else:
         import signal
 
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except OSError:  # no such group (all gone, or not started as a leader)
-            pass
+        reaped = process.returncode is not None  # before poll(), which may reap it
+        own = os.getpgrp()
+        if not reaped:
+            first = [process.pid, *descendants(process.pid)]
+            _signal_tree(first, signal.SIGSTOP, own_group=own)
+            tree = list(dict.fromkeys(first + descendants(process.pid)))
+            _signal_tree(tree, signal.SIGKILL, own_group=own)
+            # a stopped process in the caller's group was SIGKILLed above; nothing
+            # is left stopped
+        if not reaped or not _pid_alive(process.pid):
+            try:  # orphans still in the group (its id cannot be reused while it has members)
+                if process.pid != own:
+                    os.killpg(process.pid, signal.SIGKILL)
+            except OSError:  # no such group (all gone, or not started as a leader)
+                pass
     if process.poll() is None:
         process.kill()
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:  # alive, not ours
+        return True
+    return True
 
 
 def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT, kill=None):
