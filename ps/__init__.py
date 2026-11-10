@@ -26,28 +26,37 @@ its stdin closed and is bounded by :data:`ps.base.DFLT_DOC_TIMEOUT`, so it canno
 hang, but it is still a real execution.
 
 The ``PATH`` is scanned on the first such attribute access (``ps.ls``,
-``from ps import ls``, ``dir(ps)``), not on ``import ps``, so importing a
-submodule (e.g. :mod:`ps.isolated`) costs no scan.
+``from ps import ls``, ``from ps import *``, ``dir(ps)``), not on ``import ps``,
+so importing a submodule (e.g. :mod:`ps.isolated`) costs no scan. The commands
+are therefore no longer entries of the module's ``__dict__`` (``vars(ps)``).
 """
 
-from pathlib import Path as _Path
+import pkgutil as _pkgutil
+import threading as _threading
 
 from ps.base import Command, Commands
 
+#: Submodule names: never commands, so asking for one does not scan ``PATH``.
+_SUBMODULES = frozenset(name for _, name, _ in _pkgutil.iter_modules(__path__))
+_PUBLIC = ("Command", "Commands")
 _COMMANDS = None  # the PATH's commands, found on first use
+_COMMANDS_LOCK = _threading.Lock()
 
 
 def _commands():
     global _COMMANDS
     if _COMMANDS is None:
-        _COMMANDS = Commands()
+        with _COMMANDS_LOCK:  # one scan, even when threads ask at once
+            if _COMMANDS is None:
+                _COMMANDS = Commands()
     return _COMMANDS
 
 
 def __getattr__(name):
     """``ps.<command>``: the command of that identifier found on ``PATH`` (PEP 562)."""
-    # Private names and submodules not imported yet are never commands: no scan.
-    if name.startswith("_") or (_Path(__file__).parent / f"{name}.py").exists():
+    if name == "__all__":  # ``from ps import *``: the public names and every command
+        return [*_PUBLIC, *_commands()]
+    if name.startswith("_") or name in _SUBMODULES:
         raise AttributeError(f"module 'ps' has no attribute {name!r}")
     try:
         return _commands()[name]

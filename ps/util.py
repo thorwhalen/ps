@@ -94,34 +94,41 @@ def _validated_timeout(timeout):
 
 
 #: ``Popen`` arguments that start a process as the leader of its own group, so
-#: :func:`kill_process_tree` can take its descendants down with it.
+#: :func:`kill_process_tree` can take its descendants down with it. On POSIX that
+#: is a new session: the process also leaves the terminal's process group, so a
+#: Ctrl-C or SIGHUP sent to the terminal does not reach it, and if the host is
+#: killed outright (SIGKILL) the process is not killed with it.
 NEW_PROCESS_GROUP = {} if os.name == "nt" else {"start_new_session": True}
 
 
 def kill_process_tree(process):
     """Kill ``process`` and everything it spawned.
 
-    On POSIX the process must have been started with :data:`NEW_PROCESS_GROUP`
-    (its group is killed); on Windows ``taskkill /T`` follows the process tree.
-    Falls back to killing ``process`` alone when that fails.
+    On POSIX the process must have been started with :data:`NEW_PROCESS_GROUP`:
+    its whole group is killed, even when ``process`` itself already exited (its
+    children may live on). On Windows ``taskkill /T`` follows the tree from a live
+    ``process``; children it left behind when it exited cannot be found that way.
+    ``process`` itself is killed in any case.
     """
-    if process.poll() is not None:
-        return
-    try:
-        if os.name == "nt":
+    if os.name == "nt":
+        if process.poll() is None:
             from subprocess import DEVNULL, call
 
-            call(
-                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                stdout=DEVNULL,
-                stderr=DEVNULL,
-            )
-        else:
-            import signal
+            try:
+                call(
+                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                    stdout=DEVNULL,
+                    stderr=DEVNULL,
+                )
+            except OSError:
+                pass
+    else:
+        import signal
 
+        try:
             os.killpg(process.pid, signal.SIGKILL)
-    except OSError:
-        pass
+        except OSError:  # no such group (all gone, or not started as a leader)
+            pass
     if process.poll() is None:
         process.kill()
 

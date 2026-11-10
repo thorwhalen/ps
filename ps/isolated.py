@@ -306,17 +306,30 @@ def _find_uv() -> str:
     return uv
 
 
-def _clear_env_dir(path: Path) -> None:
-    """Remove a stale environment at ``path``, refusing to touch anything else."""
-    if not path.exists():
-        return
-    if (path / "pyvenv.cfg").exists():
-        shutil.rmtree(path)
-    elif any(path.iterdir()):
+def _clear_env_dir(path: Path, marker: str) -> None:
+    """Remove a stale environment at ``path`` that ps built (it holds ``marker``).
+
+    Anything else is refused: an empty folder is reused, and a folder ps did not
+    build (a hand-made venv, the running interpreter's own) is never deleted.
+    """
+    resolved = path.resolve()
+    if resolved in {Path(sys.prefix).resolve(), Path(sys.base_prefix).resolve()}:
         raise RuntimeError(
-            f"{path} exists and is not a virtual environment: "
-            "refusing to replace it with one"
+            f"{path} is this interpreter's own environment: not replacing it"
         )
+    if not path.exists() or not any(path.iterdir()):
+        return
+    if not (path / marker).exists():
+        raise RuntimeError(
+            f"{path} is not empty and was not built by ps (no {marker}): "
+            "delete it yourself, or choose another folder"
+        )
+    shutil.rmtree(path)
+
+
+def _write_marker(path: Path, marker: str, spec: EnvSpec, digest) -> None:
+    content = {"digest": digest, "spec": asdict(spec)}
+    (path / marker).write_text(json.dumps(content, indent=2))
 
 
 def _log_to_stderr(message: str) -> None:
@@ -333,8 +346,10 @@ def ensure_env(
 ) -> Path:
     """Build ``spec``'s environment at ``path`` unless it was built from this spec; return its Python.
 
-    A stale environment (built from another spec, or half-built) is removed and built
-    afresh, so a changed Python version or a dropped requirement does take effect. The
+    A stale environment ps built (from another spec, or half-built) is removed and
+    built afresh, so a changed Python version or a dropped requirement does take
+    effect; a non-empty folder ps did not build raises instead (a provisional marker,
+    written right after ``uv venv``, makes a half-built one count as ps's). The
     host's uv pins (:data:`HOST_UV_VARS`) are cleared for the build: they are for the
     host, and an isolated environment exists precisely to differ.
 
@@ -351,13 +366,14 @@ def ensure_env(
     commands = _env_commands(spec, path, _find_uv())
     shown = "\n".join(_shown(c) for c in commands)
     log(f"Building the {spec.name!r} environment in {path} (one-time):\n{shown}")
-    _clear_env_dir(path)
+    _clear_env_dir(path, marker)
     env = {**os.environ, **{var: "" for var in HOST_UV_VARS}}
-    for command in commands:
+    venv, *install = commands
+    run(venv, check=True, env=env)
+    _write_marker(path, marker, spec, None)  # ps's, but not ready until the end
+    for command in install:
         run(command, check=True, env=env)
-    (path / marker).write_text(
-        json.dumps({"digest": spec.digest(), "spec": asdict(spec)}, indent=2)
-    )
+    _write_marker(path, marker, spec, spec.digest())
     return venv_python(path)
 
 
@@ -372,7 +388,12 @@ _TEMP_LOG = object()  # the default ``stderr``: a temporary log file
 
 @atexit.register
 def _kill_all() -> None:
-    """Kill every live worker; never waits on a call in flight (a daemon thread's)."""
+    """Kill every live worker, without waiting on a call in flight.
+
+    This only helps calls made from daemon threads: Python joins non-daemon threads
+    before running exit handlers, so a non-daemon thread stuck in a call keeps the
+    host alive (stop it with :meth:`Worker.kill`).
+    """
     for worker in list(_LIVE_WORKERS):
         try:
             worker.kill()
@@ -408,7 +429,10 @@ class Worker:
 
     Started (and the adapter loaded) on the first :meth:`call`, stopped by
     :meth:`close` or :meth:`kill` (the latter at interpreter exit too). One request is
-    in flight at a time.
+    in flight at a time. The process leads its own process group, so stopping it also
+    kills what it spawned (a forked data loader, say); on POSIX it therefore does not
+    get the terminal's Ctrl-C, and if the host is killed outright it ends when its
+    stdin closes, once the operation it is running returns.
 
     Args:
         python: The environment's interpreter.
@@ -471,7 +495,10 @@ class Worker:
             os.close(fd)
             self.log_path = Path(path)
         argv = [self.python, "-u", "-c", _BOOTSTRAP, __file__, self.adapter]
+        from ps.util import NEW_PROCESS_GROUP
+
         options = dict(
+            **NEW_PROCESS_GROUP,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             cwd=self.cwd or _neutral_dir(),
@@ -567,9 +594,12 @@ class Worker:
             self.log_path = None
 
     def kill(self) -> None:
-        """Kill the process now, without waiting for a call in flight (which then fails)."""
+        """Kill the process (and what it spawned) now, without waiting for a call in flight.
+
+        That call then fails. The reply pipe is left to its reader to close.
+        """
         proc, self._proc = self._proc, None
-        _terminate(proc)
+        _terminate(proc, close_stdout=False)
         self._remove_temp_log()
 
     def close(self, timeout: float = DFLT_CLOSE_TIMEOUT) -> None:
@@ -601,14 +631,26 @@ class Worker:
             pass
 
 
-def _terminate(proc) -> None:
-    """Kill ``proc`` if it still runs, collect it, and close our ends of its pipes."""
+def _terminate(proc, *, close_stdout: bool = True) -> None:
+    """Kill ``proc`` and its process group, collect it, and close our ends of its pipes.
+
+    The group is killed even when ``proc`` already exited, since what it spawned may
+    live on. ``close_stdout=False`` leaves the reply pipe alone: closing it while
+    another thread reads it would block until every writer is gone.
+    """
     if proc is None:
         return
-    if proc.poll() is None:
+    if isinstance(proc, subprocess.Popen):
+        from ps.util import kill_process_tree
+
+        kill_process_tree(proc)
+    elif proc.poll() is None:  # a spawn= stand-in: no group to kill
         proc.kill()
-        proc.wait()
-    for stream in (getattr(proc, "stdin", None), getattr(proc, "stdout", None)):
+    proc.wait()
+    streams = [getattr(proc, "stdin", None)]
+    if close_stdout:
+        streams.append(getattr(proc, "stdout", None))
+    for stream in streams:
         try:
             stream.close()
         except Exception:  # noqa: BLE001 - already closed, or a fake without close
@@ -690,7 +732,9 @@ def run_process(
     ``env`` is added to the host's environment (minus :data:`HOST_ONLY_VARS`); stdin is
     closed, so a program prompting for input fails instead of waiting. Past ``timeout``
     seconds the process and everything it spawned are killed, and
-    :class:`subprocess.TimeoutExpired` is raised.
+    :class:`subprocess.TimeoutExpired` is raised. The process leads its own process
+    group for that, so on POSIX it does not get the terminal's Ctrl-C or SIGHUP, and
+    it outlives a host that is killed outright.
 
     >>> import sys
     >>> run_process([sys.executable, "-c", "print('hi')"])

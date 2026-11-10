@@ -72,6 +72,22 @@ def die(state, pad=0):
 def sleep(state, seconds):
     time.sleep(seconds); return {'slept': seconds}
 
+def fork(state):
+    # a forked child (a data loader, say) holding the reply pipe
+    pid = os.fork()
+    if pid == 0:
+        time.sleep(60)
+        os._exit(0)
+    return {'child': pid}
+
+def escape(state):
+    # a child that leaves the worker's group and holds the reply pipe for 3 s
+    if os.fork() == 0:
+        os.setsid()
+        time.sleep(3)
+        os._exit(0)
+    return {}
+
 def linger(state):
     # a non-daemon thread: the process will not end when its stdin closes
     threading.Thread(target=time.sleep, args=(60,)).start(); return {}
@@ -215,12 +231,15 @@ def fake_uv(monkeypatch):
             venv_python(path).parent.mkdir(parents=True)
             venv_python(path).touch()
         else:
+            if run.fail_install:
+                run.fail_install = False
+                raise subprocess.CalledProcessError(1, cmd)
             site = Path(cmd[cmd.index("--python") + 1]).parent.parent / "site"
             site.mkdir(exist_ok=True)
             for req in (a for a in cmd[5:] if not a.startswith("-") and a != "cpu"):
                 (site / re.sub(r"[^\w.-]", "_", req)).touch()  # Windows-safe
 
-    run.commands = commands
+    run.commands, run.fail_install = commands, False
     return run
 
 
@@ -264,9 +283,42 @@ def test_ensure_env_refuses_to_replace_a_folder_that_is_not_a_venv(tmp_path, fak
     path = tmp_path / "precious"
     path.mkdir()
     (path / "data.txt").write_text("keep me")
-    with pytest.raises(RuntimeError, match="not a virtual environment"):
+    with pytest.raises(RuntimeError, match="not built by ps"):
         _build(EnvSpec("demo", ()), path, fake_uv)
     assert (path / "data.txt").read_text() == "keep me" and not fake_uv.commands
+
+
+def test_ensure_env_never_deletes_a_venv_it_did_not_build(tmp_path, fake_uv):
+    path = tmp_path / "hand-made"
+    path.mkdir()
+    (path / "pyvenv.cfg").write_text("home = /usr\n")
+    (path / "my-package").touch()
+    with pytest.raises(RuntimeError, match="delete it yourself"):
+        _build(EnvSpec("demo", ()), path, fake_uv)
+    assert (path / "my-package").exists() and not fake_uv.commands
+
+
+def test_ensure_env_never_replaces_the_running_interpreters_env(
+    tmp_path, fake_uv, monkeypatch
+):
+    path = tmp_path / "me"
+    path.mkdir()
+    (path / isolated.DFLT_ENV_MARKER).write_text("{}")  # even one that looks like ps's
+    (path / "lib").touch()
+    monkeypatch.setattr(sys, "prefix", str(path))
+    with pytest.raises(RuntimeError, match="own environment"):
+        _build(EnvSpec("demo", ()), path, fake_uv)
+    assert (path / "lib").exists() and not fake_uv.commands
+
+
+def test_a_half_built_env_is_ps_s_and_is_rebuilt(tmp_path, fake_uv):
+    spec, path = EnvSpec("demo", ("numpy",)), tmp_path / "demo"
+    fake_uv.fail_install = True
+    with pytest.raises(subprocess.CalledProcessError):
+        _build(spec, path, fake_uv)
+    assert (path / isolated.DFLT_ENV_MARKER).exists() and not is_env_ready(spec, path)
+    _build(spec, path, fake_uv)  # the fake asserts the venv is made in a fresh folder
+    assert is_env_ready(spec, path)
 
 
 def test_the_build_notice_shows_the_commands_with_the_pins_cleared(tmp_path, fake_uv):
@@ -490,13 +542,22 @@ import sys, threading, time
 from ps.isolated import Worker
 worker = Worker(sys.executable, sys.argv[1])
 print(worker.call("where")["pid"], flush=True)
-if sys.argv[2] == "in-flight":
+if sys.argv[2] == "in-flight-forked":
+    print(worker.call("fork")["child"], flush=True)
+if sys.argv[2].startswith("in-flight"):
     threading.Thread(target=worker.call, args=("sleep",), kwargs={"seconds": 60}, daemon=True).start()
     time.sleep(0.5)
 """
 
 
-@pytest.mark.parametrize("state", ["idle", "in-flight"])
+@pytest.mark.parametrize(
+    "state",
+    [
+        "idle",
+        "in-flight",
+        pytest.param("in-flight-forked", marks=posix_only),
+    ],
+)
 def test_the_host_exits_and_takes_its_workers_with_it(echo, tmp_path, state):
     """At exit every worker is killed, even with a daemon thread inside call()."""
     script = tmp_path / "host.py"
@@ -509,10 +570,40 @@ def test_the_host_exits_and_takes_its_workers_with_it(echo, tmp_path, state):
         timeout=30,
     )
     assert out.returncode == 0, out.stderr
-    assert time.monotonic() - started < 20
-    pid = int(out.stdout.split()[0])
+    assert time.monotonic() - started < 10, "exit waited on the worker"
     if os.name != "nt":
-        assert _wait_dead(pid), "the worker outlived its host"
+        for pid in map(int, out.stdout.split()):  # the worker, and its forked child
+            assert _wait_dead(pid), f"{pid} outlived its host"
+
+
+@posix_only
+@pytest.mark.parametrize("stop", ["close", "kill"])
+def test_stopping_a_worker_kills_what_it_spawned(echo, tmp_path, stop):
+    worker = _worker(echo, tmp_path)
+    child = worker.call("fork")["child"]
+    started = time.monotonic()
+    getattr(worker, stop)()
+    assert time.monotonic() - started < 5
+    assert _wait_dead(child), "the worker's child survived"
+
+
+@posix_only
+def test_kill_returns_at_once_while_a_forked_child_holds_the_reply_pipe(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
+    child = worker.call("fork")["child"]
+    errors = []
+    caller = threading.Thread(
+        target=lambda: errors.append(
+            pytest.raises(WorkerError, worker.call, "sleep", seconds=30)
+        )
+    )
+    caller.start()
+    time.sleep(0.3)
+    started = time.monotonic()
+    worker.kill()
+    caller.join(10)
+    assert time.monotonic() - started < 5 and not caller.is_alive() and errors
+    assert _wait_dead(child)
 
 
 class _FakeProc:
@@ -638,3 +729,20 @@ def test_clean_environ_defaults_to_this_process(monkeypatch):
     monkeypatch.setenv("PS_TEST_KEEP", "1")
     env = clean_environ()
     assert "VIRTUAL_ENV" not in env and env["PS_TEST_KEEP"] == "1"
+
+
+@posix_only
+def test_kill_does_not_wait_on_a_reply_pipe_held_outside_the_group(echo, tmp_path):
+    """Closing the reply pipe under a blocked reader would wait for every writer."""
+    worker = _worker(echo, tmp_path)
+    worker.call("escape")
+    caller = threading.Thread(
+        target=lambda: pytest.raises(WorkerError, worker.call, "sleep", seconds=30)
+    )
+    caller.start()
+    time.sleep(0.3)
+    started = time.monotonic()
+    worker.kill()
+    assert time.monotonic() - started < 2
+    caller.join(10)  # its reader sees EOF once the escaped child ends
+    assert not caller.is_alive()

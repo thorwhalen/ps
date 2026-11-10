@@ -287,6 +287,10 @@ Notes:
 
 # Notes
 
+## Commands are found on first use
+
+`import ps` no longer scans your `PATH`: the scan happens on the first command lookup (`ps.ls`, `from ps import ls`, `from ps import *`, `dir(ps)`). Those all work as before, but the commands are no longer entries of the module's `__dict__` (`vars(ps)`).
+
 ## Auto docs
 
 Trying to figure out a robust way to get doc strings.
