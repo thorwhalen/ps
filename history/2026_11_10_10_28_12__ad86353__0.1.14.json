@@ -1,0 +1,47 @@
+{
+  "collection_duration_seconds": 2.4561986923217773,
+  "commit_message": "ps.isolated: adapter files only, smaller surface, review fixes\n\nDecisions (review of this PR): one driver style, adapter files; WorkerPool\nstays with its one customer (voxy); no build=False / env_commands / uv= /\nadapter_handler / serve(handle) / expose.\n\nFixes:\n- Worker.kill() takes no lock and is what runs at exit, so a host exits\n  even with a daemon thread inside call(); tested with a real host process.\n- A stale environment is removed and rebuilt (a changed Python or a dropped\n  requirement takes effect); a folder that is not a venv is never removed.\n- stderr= seam: a log file (default: temporary, made on start, deleted on\n  close) or None for the host's terminal; the log tail is read by seeking.\n- serve_adapter puts the adapter's folder on sys.path (shared helpers).\n- run_process kills the whole process tree on timeout (ps.util gains\n  kill_process_tree and NEW_PROCESS_GROUP); still raises TimeoutExpired.\n- UV_OVERRIDE and UV_BUILD_CONSTRAINT are cleared with UV_CONSTRAINT, and the\n  build notice shows the commands with them cleared.\n- Only None results become {}.\n- ps/__init__ resolves commands lazily (PEP 562): import ps and its\n  submodules no longer scan PATH; ps.<cmd>, from ps import <cmd> and dir(ps)\n  still work.\n\nRefs thorwhalen/arioso#56",
+  "commit_sha": "ad863533bcde8d020dcc4fb8f807f3c7b5039f0a",
+  "metrics": {
+    "coverage": {
+      "branch_coverage": 0.0,
+      "error": "No coverage file found",
+      "line_coverage": 0.0,
+      "statements_covered": 0,
+      "statements_total": 0
+    },
+    "umpyre_stats": {
+      "comment_lines": 11279,
+      "comment_lines_ratio": 0.05367552930762898,
+      "docs_lines": 16135,
+      "empty_lines": 24100,
+      "empty_lines_ratio": 0.11468926822536203,
+      "files_analyzed": 533,
+      "function_lines": 77282,
+      "function_lines_ratio": 0.36777659863039125,
+      "mean_lines_per_function": 15.967355371900826,
+      "num_classes": 1325,
+      "num_functions": 4840,
+      "pypi_version": "0.1.14",
+      "total_lines": 210133
+    },
+    "wily": {
+      "cyclomatic_avg": 0.0,
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
+      "files_analyzed": 0,
+      "maintainability_index": 0.0,
+      "total_loc": 0
+    },
+    "workflow_status": {
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-11-10T10:06:26Z",
+      "recent_failure_count": 4,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42796116323",
+      "total_runs_analyzed": 10
+    }
+  },
+  "python_version": "3.10",
+  "schema_version": "1.0",
+  "timestamp": "2026-11-10T10:28:12.109664Z",
+  "workflow_status": {}
+}

@@ -1,26 +1,49 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:06:20.072493Z
-commit_sha,a0a8244cab8f7c703ca6fc6c6feb8015679c2d06
-commit_message,Merge 44fed4e52b140947cd1433434341898f3fda39b9 into e03aee4fc01c729b0af02e1cdfa0b54080e30389
+timestamp,2026-11-10T10:28:12.109664Z
+commit_sha,ad863533bcde8d020dcc4fb8f807f3c7b5039f0a
+commit_message,"ps.isolated: adapter files only, smaller surface, review fixes
+
+Decisions (review of this PR): one driver style, adapter files; WorkerPool
+stays with its one customer (voxy); no build=False / env_commands / uv= /
+adapter_handler / serve(handle) / expose.
+
+Fixes:
+- Worker.kill() takes no lock and is what runs at exit, so a host exits
+  even with a daemon thread inside call(); tested with a real host process.
+- A stale environment is removed and rebuilt (a changed Python or a dropped
+  requirement takes effect); a folder that is not a venv is never removed.
+- stderr= seam: a log file (default: temporary, made on start, deleted on
+  close) or None for the host's terminal; the log tail is read by seeking.
+- serve_adapter puts the adapter's folder on sys.path (shared helpers).
+- run_process kills the whole process tree on timeout (ps.util gains
+  kill_process_tree and NEW_PROCESS_GROUP); still raises TimeoutExpired.
+- UV_OVERRIDE and UV_BUILD_CONSTRAINT are cleared with UV_CONSTRAINT, and the
+  build notice shows the commands with them cleared.
+- Only None results become {}.
+- ps/__init__ resolves commands lazily (PEP 562): import ps and its
+  submodules no longer scan PATH; ps.<cmd>, from ps import <cmd> and dir(ps)
+  still work.
+
+Refs thorwhalen/arioso#56"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4843
-metrics.umpyre_stats.num_classes,1326
-metrics.umpyre_stats.total_lines,210168
-metrics.umpyre_stats.empty_lines,24105
-metrics.umpyre_stats.comment_lines,11281
-metrics.umpyre_stats.docs_lines,16158
-metrics.umpyre_stats.function_lines,77290
-metrics.umpyre_stats.empty_lines_ratio,0.11469395911841955
-metrics.umpyre_stats.comment_lines_ratio,0.05367610673366069
-metrics.umpyre_stats.function_lines_ratio,0.36775341631456737
-metrics.umpyre_stats.mean_lines_per_function,15.959116250258104
+metrics.umpyre_stats.num_functions,4840
+metrics.umpyre_stats.num_classes,1325
+metrics.umpyre_stats.total_lines,210133
+metrics.umpyre_stats.empty_lines,24100
+metrics.umpyre_stats.comment_lines,11279
+metrics.umpyre_stats.docs_lines,16135
+metrics.umpyre_stats.function_lines,77282
+metrics.umpyre_stats.empty_lines_ratio,0.11468926822536203
+metrics.umpyre_stats.comment_lines_ratio,0.05367552930762898
+metrics.umpyre_stats.function_lines_ratio,0.36777659863039125
+metrics.umpyre_stats.mean_lines_per_function,15.967355371900826
 metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.14
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-10-20T17:41:12Z
-metrics.workflow_status.recent_failure_count,5
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42795824986
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T10:06:26Z
+metrics.workflow_status.recent_failure_count,4
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42796116323
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -33,4 +56,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.0730741024017334
+collection_duration_seconds,2.4561986923217773
