@@ -1,8 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:24:37.473252Z
-commit_sha,3b7c17da1834393e98cd6342d218aaa80e8e5ac2
-commit_message,"GitSource re-review fixes: no check cache (missed git reset and later edits), fall back only when a server refuses a SHA and say when the commit is on no ref, ssh BatchMode, no gc in .partial, rmtree handler only for read-only files"
+timestamp,2026-11-10T14:24:40.085519Z
+commit_sha,dacb21c588a83bc7cdf785a47478f557e985c8a1
+commit_message,Merge 3b7c17da1834393e98cd6342d218aaa80e8e5ac2 into 5662cf2f7a2233acd77d6155cf40140e5d107e49
 python_version,3.10
 metrics.umpyre_stats.num_functions,4853
 metrics.umpyre_stats.num_classes,1327
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.150438070297241
+collection_duration_seconds,2.844329833984375
