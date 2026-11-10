@@ -17,6 +17,9 @@ Two ways to get the environment, and one way to talk to it:
 - :class:`EnvSpec` describes an environment ps *builds* with ``uv`` from a list of
   requirements: :func:`ensure_env` builds it once, and rebuilds it from scratch when
   the spec changes (a marker records the spec's digest).
+- :func:`compile_lock` pins an environment's requirements into a lock file
+  (:func:`lock_requirements` reads it back), and :func:`cli` is a ready
+  ``build`` / ``status`` / ``lock`` command line over a host's named environments.
 - :class:`Worker` keeps one process of an environment alive, running an **adapter
   file**, and talks to it in JSON lines, so a model loads once instead of once per
   call. :func:`run_process` is the one-shot alternative: run a command, get
@@ -85,6 +88,7 @@ voxy (``voxy.envs``, ``voxy.worker``, ``voxy/workers/serve.py``):
 - ``GitSource``, ``ensure_git_source(source, name, rootdir=)`` (voxy#123) ->
   :class:`GitSource`, :func:`ensure_git_source` with ``path=git_source_dir(...)``;
   its ``_dir_lock`` -> a private ``_dir_lock``.
+- ``python -m voxy setup [backend ...]`` -> :func:`cli` (``build``).
 - ``WorkerError``, ``LOG_TAIL_CHARS`` -> same names; ``workers/serve.py`` ->
   :func:`serve_adapter` (its torch thread cap moves into the adapters' ``load``).
 
@@ -706,6 +710,138 @@ def ensure_env(
         run(command, check=True, env=env)
     _write_marker(path, marker, spec, spec.digest())
     return venv_python(path)
+
+
+# --------------------------------------------------------------------------------------
+# Locks, and a command line over named environments
+
+#: A named environment for :func:`cli`: a spec, or a function making one when needed
+#: (a spec read from a lock file, say, which may not exist yet).
+SpecSource = Union[EnvSpec, Callable[[], EnvSpec]]
+
+
+def lock_requirements(text: str) -> Tuple[str, ...]:
+    """The requirement lines of a lock (``uv pip compile`` output): comments dropped, markers kept.
+
+    >>> lock_requirements("# header\\nnumpy==2.1.0\\n    # via x\\ntorch==2.5.0 ; sys_platform == 'darwin'\\n")
+    ('numpy==2.1.0', "torch==2.5.0 ; sys_platform == 'darwin'")
+    """
+    lines = (line.split(" #")[0].strip() for line in text.splitlines())
+    return tuple(line for line in lines if line and not line.startswith(("#", "-")))
+
+
+def compile_lock(
+    requirements: Iterable[str],
+    path: PathLike,
+    *,
+    python: str = "{}.{}".format(*sys.version_info[:2]),
+    custom_command: Optional[str] = None,
+    run: Callable = subprocess.run,
+) -> Path:
+    """Resolve ``requirements`` into a lock at ``path`` (``uv pip compile --universal``); return ``path``.
+
+    Every package is pinned, with platform markers, so the lock serves every OS. Its
+    lines (:func:`lock_requirements`) become an :class:`EnvSpec`'s requirements, so
+    a changed lock changes the digest and rebuilds the environment. The host's uv
+    pins (:data:`HOST_UV_VARS`) are cleared, as for :func:`ensure_env`.
+
+    Args:
+        requirements: The top-level requirements (what the environment is for).
+        path: The lock file to write.
+        python: The Python version the lock is resolved for.
+        custom_command: The command the lock's header says regenerates it.
+        run: Runs the command (seam; ``subprocess.run`` signature).
+    """
+    command = [_find_uv(), "pip", "compile", "-", "--universal"]
+    command += ["--python-version", python, "--output-file", str(path)]
+    if custom_command:
+        command += ["--custom-compile-command", custom_command]
+    run(
+        command,
+        input="\n".join(requirements) + "\n",
+        text=True,
+        check=True,
+        env={**os.environ, **{var: "" for var in HOST_UV_VARS}},
+    )
+    return Path(path)
+
+
+def cli(
+    specs: Mapping[str, SpecSource],
+    *,
+    env_dir: Callable[[str], PathLike],
+    locks: Optional[Mapping[str, Callable[[], Any]]] = None,
+    build: Optional[Callable[[EnvSpec, Path], Any]] = None,
+    marker: str = DFLT_ENV_MARKER,
+    prog: Optional[str] = None,
+    argv: Optional[Iterable[str]] = None,
+    out: Callable[[str], Any] = print,
+) -> int:
+    """A command line over named environments: ``build [name ...]``, ``status``, ``lock name ...``.
+
+    - ``build`` builds the named environments (all, by default) and prints
+      ``name<TAB>python`` for each.
+    - ``status`` prints ``name: built (folder)`` or ``name: not built (folder)``.
+    - ``lock`` (only when ``locks`` is given) calls each named lock function (a
+      :func:`compile_lock` with its arguments bound, typically) and prints what it
+      returns.
+
+    A host exposes it in a few lines, e.g. in ``mypkg/isolated.py``::
+
+        if __name__ == "__main__":
+            sys.exit(isolated.cli(SPECS, env_dir=env_dir, prog="python -m mypkg.isolated"))
+
+    Args:
+        specs: name -> :class:`EnvSpec`, or a function making it (called when needed).
+        env_dir: name -> the environment's folder.
+        locks: name -> a function resolving that environment's lock.
+        build: ``(spec, folder) -> python``; default :func:`ensure_env` with ``marker``.
+        marker: The marker file of the host's environments.
+        prog: The program name shown in help.
+        argv: The arguments (default: ``sys.argv[1:]``).
+        out: Receives each output line.
+
+    >>> specs = {"a": EnvSpec("a", ()), "b": lambda: EnvSpec("b", ())}
+    >>> cli(specs, env_dir=lambda name: "/nowhere/" + name, argv=["status"])
+    a: not built (/nowhere/a)
+    b: not built (/nowhere/b)
+    0
+    """
+    import argparse
+
+    def spec(name: str) -> EnvSpec:
+        source = specs[name]
+        return source if isinstance(source, EnvSpec) else source()
+
+    def check(names, known, what):
+        unknown = [n for n in names if n not in known]
+        if unknown:
+            parser.error(f"unknown {what} {unknown}; choose from {sorted(known)}")
+        return names
+
+    build = build or (lambda s, path: ensure_env(s, path, marker=marker))
+    parser = argparse.ArgumentParser(prog=prog, description="Isolated environments.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    build_cmd = commands.add_parser("build", help="build environments (default: all)")
+    build_cmd.add_argument("names", nargs="*", metavar="name", help=", ".join(specs))
+    commands.add_parser("status", help="where each environment is, and if it is built")
+    if locks:
+        lock_cmd = commands.add_parser("lock", help="re-resolve locks (needs uv)")
+        lock_cmd.add_argument("names", nargs="+", metavar="name", help=", ".join(locks))
+    args = parser.parse_args(None if argv is None else list(argv))
+
+    if args.command == "build":
+        for name in check(args.names, specs, "environment") or list(specs):
+            out(f"{name}\t{build(spec(name), Path(env_dir(name)).expanduser())}")
+    elif args.command == "lock":
+        for name in check(args.names, locks, "lock"):
+            out(str(locks[name]()))
+    else:
+        for name in specs:
+            path = Path(env_dir(name)).expanduser()
+            state = "built" if is_env_ready(spec(name), path, marker=marker) else "not built"
+            out(f"{name}: {state} ({path})")
+    return 0
 
 
 # --------------------------------------------------------------------------------------
