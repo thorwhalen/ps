@@ -1,0 +1,47 @@
+{
+  "collection_duration_seconds": 3.155461311340332,
+  "commit_message": "ps.isolated: lock_requirements, compile_lock, and a build/status/lock cli (#20)\n\n* ps.isolated: lock_requirements, compile_lock and a build/status/lock cli over named environments (#17)\n\n* env cli review fixes: add_env_commands/run_env_command to mount in a host parser, build needs names or --all, compile_lock needs python and finds uv through run, status reports a failing spec per name, editables kept and index options refused in locks, locks checked against specs\n\n* env cli: drop the mounted-parser API for build_envs/env_status (voxy calls build_envs), build prints bare interpreters (denote's output), names required, compile_lock takes torch_backend, hashed lines refused\n\n* env cli: ValueError for unknown names, status catches only a failing spec, build= may ignore its folder",
+  "commit_sha": "54e379ee92884d70d67950fb0a08049281616a62",
+  "metrics": {
+    "coverage": {
+      "branch_coverage": 0.0,
+      "error": "No coverage file found",
+      "line_coverage": 0.0,
+      "statements_covered": 0,
+      "statements_total": 0
+    },
+    "umpyre_stats": {
+      "comment_lines": 11300,
+      "comment_lines_ratio": 0.05358142004988288,
+      "docs_lines": 16315,
+      "empty_lines": 24194,
+      "empty_lines_ratio": 0.11472113952981118,
+      "files_analyzed": 533,
+      "function_lines": 77901,
+      "function_lines_ratio": 0.3693846197615864,
+      "mean_lines_per_function": 16.015830592105264,
+      "num_classes": 1327,
+      "num_functions": 4864,
+      "pypi_version": "0.1.18",
+      "total_lines": 210894
+    },
+    "wily": {
+      "cyclomatic_avg": 0.0,
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
+      "files_analyzed": 0,
+      "maintainability_index": 0.0,
+      "total_loc": 0
+    },
+    "workflow_status": {
+      "last_run_status": "failure",
+      "last_success_timestamp": "2026-11-10T14:58:43Z",
+      "recent_failure_count": 3,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42840257255",
+      "total_runs_analyzed": 10
+    }
+  },
+  "python_version": "3.10",
+  "schema_version": "1.0",
+  "timestamp": "2026-11-10T15:03:49.706387Z",
+  "workflow_status": {}
+}

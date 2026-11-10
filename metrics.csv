@@ -1,25 +1,29 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T15:03:47.261115Z
-commit_sha,6272ad309cc0ac288ec4fc339811a0758d32c29e
-commit_message,"Workers on a Python whose OpenSSL has no CA bundle get one (ensure_ca_bundle) (#22)
+timestamp,2026-11-10T15:03:49.706387Z
+commit_sha,54e379ee92884d70d67950fb0a08049281616a62
+commit_message,"ps.isolated: lock_requirements, compile_lock, and a build/status/lock cli (#20)
 
-* ps.isolated: workers on a Python whose OpenSSL has no CA bundle get one (ensure_ca_bundle) (#15)
+* ps.isolated: lock_requirements, compile_lock and a build/status/lock cli over named environments (#17)
 
-* ensure_ca_bundle review fixes: only hashed certs count in the folder and an empty file is none (Homebrew .keepme), Windows left to its store, system bundle before certifi, OpenSSL's own variable names, never fails a worker's start; tests check certificates load"
+* env cli review fixes: add_env_commands/run_env_command to mount in a host parser, build needs names or --all, compile_lock needs python and finds uv through run, status reports a failing spec per name, editables kept and index options refused in locks, locks checked against specs
+
+* env cli: drop the mounted-parser API for build_envs/env_status (voxy calls build_envs), build prints bare interpreters (denote's output), names required, compile_lock takes torch_backend, hashed lines refused
+
+* env cli: ValueError for unknown names, status catches only a failing spec, build= may ignore its folder"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4564
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204586
-metrics.umpyre_stats.empty_lines,23156
-metrics.umpyre_stats.comment_lines,10868
-metrics.umpyre_stats.docs_lines,15407
-metrics.umpyre_stats.function_lines,73507
-metrics.umpyre_stats.empty_lines_ratio,0.11318467539323317
-metrics.umpyre_stats.comment_lines_ratio,0.05312191450050346
-metrics.umpyre_stats.function_lines_ratio,0.3592963350375881
-metrics.umpyre_stats.mean_lines_per_function,16.105828220858896
-metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.num_functions,4864
+metrics.umpyre_stats.num_classes,1327
+metrics.umpyre_stats.total_lines,210894
+metrics.umpyre_stats.empty_lines,24194
+metrics.umpyre_stats.comment_lines,11300
+metrics.umpyre_stats.docs_lines,16315
+metrics.umpyre_stats.function_lines,77901
+metrics.umpyre_stats.empty_lines_ratio,0.11472113952981118
+metrics.umpyre_stats.comment_lines_ratio,0.05358142004988288
+metrics.umpyre_stats.function_lines_ratio,0.3693846197615864
+metrics.umpyre_stats.mean_lines_per_function,16.015830592105264
+metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.18
 metrics.workflow_status.last_run_status,failure
 metrics.workflow_status.last_success_timestamp,2026-11-10T14:58:43Z
@@ -37,4 +41,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.53665828704834
+collection_duration_seconds,3.155461311340332
