@@ -1,5 +1,5 @@
 """Tests for ps.isolated's pinned git sources: GitSource, ensure_git_source,
-check_git_source, dir_lock and Runtime(source=). Real git on local repositories (no
+check_git_source and Runtime(source=). Real git on local repositories (no
 network); a fake ``run`` only for races and failures git cannot be made to produce.
 """
 
@@ -16,9 +16,9 @@ from ps.isolated import (
     RuntimeNotInstalled,
     SourceMismatch,
     check_git_source,
-    dir_lock,
     ensure_git_source,
 )
+from ps import isolated
 
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 QUIET = dict(log=lambda message: None)
@@ -48,9 +48,9 @@ def upstream(tmp_path):
 
 
 def test_a_source_needs_a_full_sha():
-    with pytest.raises(ValueError, match="40-character"):
+    with pytest.raises(ValueError, match="full commit SHA"):
         GitSource("https://example.org/r.git", "81aeb3a")
-    with pytest.raises(ValueError, match="40-character"):
+    with pytest.raises(ValueError, match="full commit SHA"):
         GitSource("https://example.org/r.git", "A" * 40)  # git prints lowercase
 
 
@@ -58,13 +58,16 @@ def test_a_source_needs_a_full_sha():
 def test_fetches_the_pinned_commit_not_the_tip(upstream, tmp_path, monkeypatch):
     url, first, second, _ = upstream
     monkeypatch.setenv("GIT_DIR", str(tmp_path / "elsewhere"))  # must not reach git
+    monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "elsewhere-index"))
     path = ensure_git_source(GitSource(url, first), tmp_path / "src" / "x", **QUIET)
     assert path == tmp_path / "src" / "x"
     assert (path / "code.py").read_text() == "v = 1\n"  # the tip says v = 2
     assert not path.with_name("x.partial").exists() and not path.with_name("x.lock").exists()
     monkeypatch.delenv("GIT_DIR")
-    log = subprocess.check_output(["git", "-C", str(path), "log", "--format=%H"], text=True)
-    assert log.split() == [first]  # no history beyond the commit
+    monkeypatch.delenv("GIT_INDEX_FILE")
+    tip = ensure_git_source(GitSource(url, second), tmp_path / "y", **QUIET)
+    log = subprocess.check_output(["git", "-C", str(tip), "log", "--format=%H"], text=True)
+    assert log.split() == [second]  # only the commit: its parent was not fetched
 
 
 @needs_git
@@ -74,11 +77,11 @@ def test_a_checkout_is_reused_and_checked(upstream, tmp_path):
     path = ensure_git_source(source, tmp_path / "x", **QUIET)
     calls = []
     def counting(command, **kw):
-        calls.append(command[3:5] if command[1] == "-C" else command[1:2])
+        calls.append(next(a for a in command if a in ("init", "fetch", "rev-parse", "status")))
         return subprocess.run(command, **kw)
     (path / "venv-or-weights").mkdir()  # untracked files are fine
     assert ensure_git_source(source, path, run=counting, **QUIET) == path
-    assert [c[0] for c in calls] == ["rev-parse", "status"]  # no fetch
+    assert calls == ["rev-parse", "status"]  # no fetch
 
 
 @needs_git
@@ -111,7 +114,10 @@ def test_a_folder_that_is_not_a_checkout_is_refused(upstream, tmp_path):
     url, first, _, repo = upstream
     inside = repo / "sub"  # inside another repository: not a checkout of its own
     inside.mkdir()
-    with pytest.raises(SourceMismatch, match="not a git checkout"):
+    with pytest.raises(SourceMismatch, match="(?s)not a git checkout.*fetch"):
+        check_git_source(GitSource(url, first), inside)
+    (inside / "something").write_text("x")
+    with pytest.raises(SourceMismatch, match="delete or move it"):
         check_git_source(GitSource(url, first), inside)
     assert isinstance(SourceMismatch("x"), RuntimeNotInstalled)  # hosts catch either
 
@@ -131,8 +137,52 @@ def test_runtime_with_a_source_checks_its_root(upstream, tmp_path):
     (root / "bin" / "py").write_text("")
     with pytest.raises(SourceMismatch, match="not the pinned"):
         rt.interpreter()
+    with pytest.raises(SourceMismatch, match="re-run the install step:\n\ncd .* && make"):
+        rt.interpreter()
     unpinned = Runtime(name="r", setup="x", default_dir=str(tmp_path), python="bin/py")
     assert unpinned.interpreter() == root / "bin" / "py"  # no source, no check
+
+
+@needs_git
+def test_a_runtime_checks_once_until_its_checkout_moves(upstream, tmp_path, monkeypatch):
+    url, first, second, _ = upstream
+    rt = Runtime(name="r", setup="", default_dir=str(tmp_path), python="bin/py",
+                 source=GitSource(url, first))
+    root = ensure_git_source(GitSource(url, first), rt.root(), **QUIET)
+    (root / "bin").mkdir()
+    (root / "bin" / "py").write_text("")
+    calls = []
+    real = isolated.check_git_source
+    monkeypatch.setattr(isolated, "check_git_source", lambda *a, **k: calls.append(1) or real(*a, **k))
+    rt.interpreter(), rt.interpreter()
+    assert len(calls) == 1  # cached while HEAD and the index are unchanged
+    for command in GitSource(url, second).fetch_commands(root)[1:]:
+        subprocess.run(command, check=True, capture_output=True)
+    with pytest.raises(SourceMismatch):
+        rt.interpreter()  # moved: checked again
+
+
+@needs_git
+def test_a_runtime_named_by_its_variable_warns_instead(upstream, tmp_path, monkeypatch):
+    url, first, second, _ = upstream
+    root = ensure_git_source(GitSource(url, second), tmp_path / "mine", **QUIET)
+    (root / "bin").mkdir()
+    (root / "bin" / "py").write_text("")
+    monkeypatch.setenv("PS_TEST_RT", str(root))
+    rt = Runtime(name="r", setup="", default_dir=str(tmp_path / "rt"), env_var="PS_TEST_RT",
+                 python="bin/py", source=GitSource(url, first))
+    with pytest.warns(UserWarning, match="PS_TEST_RT names a runtime that is not the pinned one"):
+        assert rt.interpreter() == root / "bin" / "py"
+
+
+@needs_git
+def test_an_interrupted_real_fetch_is_cleared_and_redone(upstream, tmp_path):
+    url, first, second, _ = upstream
+    partial = tmp_path / "x.partial"  # a real one: git's read-only objects included
+    for command in GitSource(url, second).fetch_commands(partial)[:2]:
+        subprocess.run(command, check=True, capture_output=True)
+    path = ensure_git_source(GitSource(url, first), tmp_path / "x", **QUIET)
+    assert (path / "code.py").read_text() == "v = 1\n" and not partial.exists()
 
 
 class FakeGit:
@@ -146,8 +196,8 @@ class FakeGit:
         if command[1] == "init":
             Path(command[-1], ".git").mkdir(parents=True)
             return types.SimpleNamespace(stdout="")
-        op = command[3]
-        return types.SimpleNamespace(stdout={"rev-parse": self.head + "\n", "status": self.edits}.get(op, ""))
+        out = self.head + "\n" if "rev-parse" in command else self.edits if "status" in command else ""
+        return types.SimpleNamespace(stdout=out)
 
 
 def test_losing_the_rename_race_keeps_the_winners_copy(tmp_path):
@@ -172,6 +222,53 @@ def test_an_interrupted_fetch_is_started_afresh(tmp_path):
     (partial / "half-written").write_text("x")
     path = ensure_git_source(source, tmp_path / "x", run=FakeGit(source.commit), **QUIET)
     assert not partial.exists() and not (path / "half-written").exists()
+
+
+def test_a_server_refusing_a_sha_gets_a_blobless_fetch(tmp_path):
+    source = GitSource("https://example.org/r.git", "b" * 40)
+
+    class NoShaWant(FakeGit):
+        def __call__(self, command, **kw):
+            if "--depth" in command:
+                raise subprocess.CalledProcessError(128, command, stderr="not our ref")
+            return super().__call__(command, **kw)
+
+    run = NoShaWant(source.commit)
+    assert ensure_git_source(source, tmp_path / "x", run=run, **QUIET) == tmp_path / "x"
+    fetches = [c for c in run.commands if "fetch" in c]
+    assert len(fetches) == 1 and "--filter=blob:none" in fetches[0]
+    assert ["checkout", "--quiet", "--detach", source.commit] == [c for c in run.commands if "checkout" in c][0][2:]
+
+
+def test_a_second_waiter_reuses_the_first_fetch(tmp_path):
+    import threading
+
+    source = GitSource("https://example.org/r.git", "a" * 40)
+    final, run = tmp_path / "x", FakeGit("a" * 40)
+    lock = final.with_name("x.lock")
+    lock.mkdir()  # the first process is fetching
+
+    def first_finishes():
+        (final / ".git").mkdir(parents=True)
+        shutil.rmtree(lock)
+
+    threading.Timer(0.2, first_finishes).start()
+    assert ensure_git_source(source, final, run=run, **QUIET) == final
+    assert not any("fetch" in c or "init" in c for c in run.commands)  # only checked
+
+
+def test_git_runs_without_location_variables_and_never_prompts(tmp_path, monkeypatch):
+    monkeypatch.setenv("GIT_DIR", "/elsewhere")
+    monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -i key")
+    seen = {}
+
+    def run(command, **kw):
+        seen.update(kw["env"])
+        return FakeGit("a" * 40)(command, **kw)
+
+    ensure_git_source(GitSource("https://example.org/r.git", "a" * 40), tmp_path / "x", run=run, **QUIET)
+    assert "GIT_DIR" not in seen and seen["GIT_SSH_COMMAND"] == "ssh -i key"
+    assert seen["GIT_TERMINAL_PROMPT"] == "0"
 
 
 def test_a_git_failure_carries_its_message(tmp_path):
@@ -201,9 +298,13 @@ def test_a_held_lock_times_out_with_a_hint(tmp_path):
     assert (tmp_path / "x.lock").exists()  # someone else's lock is left alone
 
 
-def test_dir_lock_releases_on_error(tmp_path):
+def test_the_lock_is_released_on_error(tmp_path):
     lock = tmp_path / "l.lock"
     with pytest.raises(KeyError):
-        with dir_lock(lock):
+        with isolated._dir_lock(lock, timeout_s=0):
             raise KeyError
     assert not lock.exists()
+
+
+def test_a_sha256_commit_is_accepted():
+    assert GitSource("https://example.org/r.git", "c" * 64).commit == "c" * 64
