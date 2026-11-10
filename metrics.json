@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.9692509174346924,
-  "commit_message": "ps.isolated: workers on a Python whose OpenSSL has no CA bundle get one (ensure_ca_bundle) (#15)",
-  "commit_sha": "d1d5df1e167a72043de4886a9dacec6db0a8ffd7",
+  "collection_duration_seconds": 3.1823112964630127,
+  "commit_message": "kill_process_tree reaches workers in their own sessions; reused-pid guard; descendants(); Worker python abspath (#21)\n\n* kill_process_tree reaches processes in sessions of their own, spares the caller's group, and leaves a reused pid alone; descendants(); Worker resolves a relative python (#16, #13)\n\n* tree kill review fixes: nothing left stopped if the second read fails, the caller never signals itself, pid/group <= 1 refused, libproc loaded once, limits documented; tests for the second read, several children, EPERM, own group run in a subprocess",
+  "commit_sha": "e4861c4518199b7bcb7d276f874e90316b48eb45",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,30 +11,30 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 11294,
-      "comment_lines_ratio": 0.05363231425288011,
-      "docs_lines": 16226,
-      "empty_lines": 24157,
-      "empty_lines_ratio": 0.1147154077746436,
+      "comment_lines": 11296,
+      "comment_lines_ratio": 0.053620931910530516,
+      "docs_lines": 16239,
+      "empty_lines": 24165,
+      "empty_lines_ratio": 0.11470873049025937,
       "files_analyzed": 533,
-      "function_lines": 77624,
-      "function_lines_ratio": 0.3686165009355026,
-      "mean_lines_per_function": 15.988465499485066,
+      "function_lines": 77696,
+      "function_lines_ratio": 0.3688147951239889,
+      "mean_lines_per_function": 15.993412927130507,
       "num_classes": 1327,
-      "num_functions": 4855,
+      "num_functions": 4858,
       "pypi_version": "0.1.17",
-      "total_lines": 210582
+      "total_lines": 210664
     },
     "wily": {
       "cyclomatic_avg": 0.0,
-      "error": "wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...\nTry 'wily report --help' for help.\n\nError: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.\n",
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
       "files_analyzed": 0,
       "maintainability_index": 0.0,
       "total_loc": 0
     },
     "workflow_status": {
       "last_run_status": "failure",
-      "last_success_timestamp": "2026-11-10T14:42:13Z",
+      "last_success_timestamp": "2026-11-10T14:45:04Z",
       "recent_failure_count": 2,
       "run_url": "https://github.com/thorwhalen/ps/actions/runs/42837102493",
       "total_runs_analyzed": 10
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:44:57.466823Z",
+  "timestamp": "2026-11-10T14:45:25.428319Z",
   "workflow_status": {}
 }
