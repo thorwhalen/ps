@@ -1,31 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:28:12.109664Z
-commit_sha,ad863533bcde8d020dcc4fb8f807f3c7b5039f0a
-commit_message,"ps.isolated: adapter files only, smaller surface, review fixes
-
-Decisions (review of this PR): one driver style, adapter files; WorkerPool
-stays with its one customer (voxy); no build=False / env_commands / uv= /
-adapter_handler / serve(handle) / expose.
-
-Fixes:
-- Worker.kill() takes no lock and is what runs at exit, so a host exits
-  even with a daemon thread inside call(); tested with a real host process.
-- A stale environment is removed and rebuilt (a changed Python or a dropped
-  requirement takes effect); a folder that is not a venv is never removed.
-- stderr= seam: a log file (default: temporary, made on start, deleted on
-  close) or None for the host's terminal; the log tail is read by seeking.
-- serve_adapter puts the adapter's folder on sys.path (shared helpers).
-- run_process kills the whole process tree on timeout (ps.util gains
-  kill_process_tree and NEW_PROCESS_GROUP); still raises TimeoutExpired.
-- UV_OVERRIDE and UV_BUILD_CONSTRAINT are cleared with UV_CONSTRAINT, and the
-  build notice shows the commands with them cleared.
-- Only None results become {}.
-- ps/__init__ resolves commands lazily (PEP 562): import ps and its
-  submodules no longer scan PATH; ps.<cmd>, from ps import <cmd> and dir(ps)
-  still work.
-
-Refs thorwhalen/arioso#56"
+timestamp,2026-11-10T10:28:15.500951Z
+commit_sha,0d45cdd344d6155247c34cfc9b79ac0a400a35e9
+commit_message,Merge ad863533bcde8d020dcc4fb8f807f3c7b5039f0a into e03aee4fc01c729b0af02e1cdfa0b54080e30389
 python_version,3.10
 metrics.umpyre_stats.num_functions,4840
 metrics.umpyre_stats.num_classes,1325
@@ -56,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.4561986923217773
+collection_duration_seconds,2.3467369079589844

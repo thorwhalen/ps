@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.4561986923217773,
-  "commit_message": "ps.isolated: adapter files only, smaller surface, review fixes\n\nDecisions (review of this PR): one driver style, adapter files; WorkerPool\nstays with its one customer (voxy); no build=False / env_commands / uv= /\nadapter_handler / serve(handle) / expose.\n\nFixes:\n- Worker.kill() takes no lock and is what runs at exit, so a host exits\n  even with a daemon thread inside call(); tested with a real host process.\n- A stale environment is removed and rebuilt (a changed Python or a dropped\n  requirement takes effect); a folder that is not a venv is never removed.\n- stderr= seam: a log file (default: temporary, made on start, deleted on\n  close) or None for the host's terminal; the log tail is read by seeking.\n- serve_adapter puts the adapter's folder on sys.path (shared helpers).\n- run_process kills the whole process tree on timeout (ps.util gains\n  kill_process_tree and NEW_PROCESS_GROUP); still raises TimeoutExpired.\n- UV_OVERRIDE and UV_BUILD_CONSTRAINT are cleared with UV_CONSTRAINT, and the\n  build notice shows the commands with them cleared.\n- Only None results become {}.\n- ps/__init__ resolves commands lazily (PEP 562): import ps and its\n  submodules no longer scan PATH; ps.<cmd>, from ps import <cmd> and dir(ps)\n  still work.\n\nRefs thorwhalen/arioso#56",
-  "commit_sha": "ad863533bcde8d020dcc4fb8f807f3c7b5039f0a",
+  "collection_duration_seconds": 2.3467369079589844,
+  "commit_message": "Merge ad863533bcde8d020dcc4fb8f807f3c7b5039f0a into e03aee4fc01c729b0af02e1cdfa0b54080e30389",
+  "commit_sha": "0d45cdd344d6155247c34cfc9b79ac0a400a35e9",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T10:28:12.109664Z",
+  "timestamp": "2026-11-10T10:28:15.500951Z",
   "workflow_status": {}
 }
