@@ -363,8 +363,9 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
 
     Limits: a descendant that starts and is orphaned within one ``interval`` is not
     seen (only its group, if it stayed in ``process``'s); a process whose start time
-    cannot be read is never killed as a survivor. On Windows the tree is not read
-    (:func:`descendants` is empty there), so only ``taskkill /T`` on timeout applies.
+    cannot be read (another user's: one started through ``sudo``, say) is never killed
+    as a survivor. On Windows the tree is not read (:func:`descendants` is empty
+    there), so only ``taskkill /T`` on timeout or interruption applies.
 
     >>> import subprocess, sys
     >>> child = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_PROCESS_GROUP)
@@ -374,41 +375,45 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
     import threading
 
     timeout = _validated_timeout(timeout)
-    seen = {}
+    if not interval > 0:
+        raise ValueError(f"interval should be a positive number of seconds. Got: {interval!r}")
+    seen = set()  # (pid, start time) pairs: a recycled pid is a new pair
     stop = threading.Event()
 
     def watch():
         while process.returncode is None:  # once reaped, its pid may be someone else's
             try:
                 for pid in descendants(process.pid):
-                    if pid not in seen:
-                        seen[pid] = start_time(pid)
+                    started = start_time(pid)
+                    if started is not None:
+                        seen.add((pid, started))
             except Exception:  # noqa: BLE001 - a missed reading must not break the wait
                 pass
             if stop.wait(interval):
                 return
 
-    watcher = threading.Thread(target=watch, name="wait_and_reap", daemon=True)
-    watcher.start()
+    watcher = None
+    if os.name != "nt":  # descendants() reads nothing there
+        watcher = threading.Thread(target=watch, name="wait_and_reap", daemon=True)
+        watcher.start()
 
     def reap():
         stop.set()
-        watcher.join()
-        if os.name != "nt":
-            survivors = [
-                pid
-                for pid, started in seen.items()
-                if started is not None and start_time(pid) == started
-            ]
+        if watcher is not None:
+            watcher.join()
+            survivors = [pid for pid, started in seen if start_time(pid) == started]
             if survivors:
                 _kill_trees(survivors)
         kill_process_tree(process)  # orphans in its group; ``process`` if still alive
 
     try:
         code = process.wait(timeout=timeout)
-    except TimeoutExpired:
+    except BaseException:  # a timeout, and Ctrl-C too: the child is in its own session
         kill_process_tree(process)
-        process.wait()
+        try:
+            process.wait(timeout=_REAP_TIMEOUT)
+        except TimeoutExpired:  # stuck in the kernel: leave it, the kill is sent
+            pass
         reap()
         raise
     reap()

@@ -109,14 +109,43 @@ def test_without_it_the_worker_outlives_the_child(tmp_path, cleanup):
     assert not _gone_soon(worker, timeout=1.0)
 
 
+def _wait_for(path, timeout=30.0):
+    deadline = time.monotonic() + timeout
+    while not path.exists():
+        assert time.monotonic() < deadline, f"{path} never appeared"
+        time.sleep(0.05)
+
+
 def test_on_timeout_the_tree_is_killed_and_the_timeout_raised(tmp_path, cleanup):
     child, pidfile = _start(tmp_path, "own", linger=120)
+    _wait_for(pidfile)  # a slow runner may take seconds to get this far
+    cleanup.append(_worker(pidfile))
     with pytest.raises(subprocess.TimeoutExpired):
-        wait_and_reap(child, timeout=2, interval=0.05)
-    worker = _worker(pidfile)
-    cleanup.append(worker)
+        wait_and_reap(child, timeout=0.5, interval=0.05)
     assert child.returncode is not None
-    assert _gone_soon(worker)
+    assert _gone_soon(_worker(pidfile))
+
+
+def test_an_interrupted_wait_still_kills_everything(tmp_path, cleanup, monkeypatch):
+    """Ctrl-C does not reach a child in its own session: the wait must clean up."""
+    child, pidfile = _start(tmp_path, "own", linger=120)
+    _wait_for(pidfile)
+    cleanup.append(_worker(pidfile))
+    real_wait = child.wait
+    calls = []
+
+    def interrupted(timeout=None):
+        if not calls:
+            calls.append(timeout)
+            time.sleep(0.5)  # the watch sees the worker
+            raise KeyboardInterrupt
+        return real_wait(timeout=timeout)
+
+    monkeypatch.setattr(child, "wait", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        wait_and_reap(child, timeout=30, interval=0.05)
+    assert _gone_soon(child.pid)
+    assert _gone_soon(_worker(pidfile))
 
 
 def test_a_child_that_exits_between_the_timeout_and_the_kill(
@@ -143,11 +172,11 @@ def test_a_pid_now_owned_by_another_process_is_spared(tmp_path, cleanup, monkeyp
     readings = {}
     real = start_time
 
-    def recycled(pid):  # the first reading of each pid is real, later ones differ
-        if pid in readings:
-            return ("someone", "else")
-        readings[pid] = real(pid)
-        return readings[pid]
+    def recycled(pid):  # real while the child runs; after, every pid is someone else's
+        if child.returncode is None:
+            readings[pid] = real(pid)
+            return readings[pid]
+        return ("someone", "else")
 
     monkeypatch.setattr(ps.util, "start_time", recycled)
     assert wait_and_reap(child, timeout=30, interval=0.05) == 3
@@ -157,9 +186,15 @@ def test_a_pid_now_owned_by_another_process_is_spared(tmp_path, cleanup, monkeyp
     assert not _gone_soon(worker, timeout=1.0)  # ... and spared
 
 
-def test_the_caller_is_never_killed(cleanup):
-    child = subprocess.Popen([sys.executable, "-c", "pass"])  # in the caller's group
-    assert wait_and_reap(child, timeout=30, interval=0.05) == 0
+def test_a_worker_left_in_the_callers_own_group_dies_but_the_caller_does_not(
+    tmp_path, cleanup
+):
+    """No NEW_PROCESS_GROUP: the worker shares the caller's group, which is never killed whole."""
+    pidfile = tmp_path / "worker.pid"
+    child = subprocess.Popen([sys.executable, "-c", PARENT, "group", str(pidfile), "1.0"])
+    assert wait_and_reap(child, timeout=30, interval=0.05) == 3
+    cleanup.append(_worker(pidfile))
+    assert _gone_soon(_worker(pidfile))
     assert _alive(os.getpid())
 
 
@@ -167,6 +202,8 @@ def test_a_bad_timeout_is_refused_before_waiting():
     child = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_PROCESS_GROUP)
     with pytest.raises(TypeError):
         wait_and_reap(child, timeout="5")
+    with pytest.raises(ValueError):
+        wait_and_reap(child, interval=0)
     child.wait()
 
 
