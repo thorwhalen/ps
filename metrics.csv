@@ -1,6 +1,6 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T15:10:39.878115Z
+timestamp,2026-11-10T15:10:43.198309Z
 commit_sha,497292b05941234eff493a5ec56cdce061753f85
 commit_message,"README: environments command line and CA bundle fix (#23)
 
@@ -37,4 +37,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.980510950088501
+collection_duration_seconds,2.299938440322876
