@@ -144,22 +144,23 @@ def test_runtime_with_a_source_checks_its_root(upstream, tmp_path):
 
 
 @needs_git
-def test_a_runtime_checks_once_until_its_checkout_moves(upstream, tmp_path, monkeypatch):
+def test_a_runtime_sees_a_checkout_moved_after_its_first_check(upstream, tmp_path):
     url, first, second, _ = upstream
     rt = Runtime(name="r", setup="", default_dir=str(tmp_path), python="bin/py",
                  source=GitSource(url, first))
     root = ensure_git_source(GitSource(url, first), rt.root(), **QUIET)
     (root / "bin").mkdir()
     (root / "bin" / "py").write_text("")
-    calls = []
-    real = isolated.check_git_source
-    monkeypatch.setattr(isolated, "check_git_source", lambda *a, **k: calls.append(1) or real(*a, **k))
-    rt.interpreter(), rt.interpreter()
-    assert len(calls) == 1  # cached while HEAD and the index are unchanged
-    for command in GitSource(url, second).fetch_commands(root)[1:]:
+    assert rt.interpreter() == root / "bin" / "py"
+    (root / "code.py").write_text("edited after the check\n")
+    with pytest.raises(SourceMismatch, match="edits"):
+        rt.interpreter()
+    subprocess.run(["git", "-C", str(root), "checkout", "--", "code.py"], check=True)
+    for command in GitSource(url, second).fetch_commands(root)[1:2]:
         subprocess.run(command, check=True, capture_output=True)
-    with pytest.raises(SourceMismatch):
-        rt.interpreter()  # moved: checked again
+    subprocess.run(["git", "-C", str(root), "reset", "--soft", second], check=True)
+    with pytest.raises(SourceMismatch, match="not the pinned"):
+        rt.interpreter()
 
 
 @needs_git
@@ -230,14 +231,44 @@ def test_a_server_refusing_a_sha_gets_a_blobless_fetch(tmp_path):
     class NoShaWant(FakeGit):
         def __call__(self, command, **kw):
             if "--depth" in command:
-                raise subprocess.CalledProcessError(128, command, stderr="not our ref")
+                raise subprocess.CalledProcessError(128, command, stderr="error: Server does not allow request for unadvertised object")
             return super().__call__(command, **kw)
 
     run = NoShaWant(source.commit)
     assert ensure_git_source(source, tmp_path / "x", run=run, **QUIET) == tmp_path / "x"
-    fetches = [c for c in run.commands if "fetch" in c]
+    fetches = [c for c in run.commands if "fetch" in c and "--depth" not in c]
     assert len(fetches) == 1 and "--filter=blob:none" in fetches[0]
     assert ["checkout", "--quiet", "--detach", source.commit] == [c for c in run.commands if "checkout" in c][0][2:]
+
+
+def test_other_fetch_failures_are_not_retried(tmp_path):
+    def run(command, **kw):
+        if "fetch" in command:
+            raise subprocess.CalledProcessError(128, command, stderr="fatal: repository not found")
+        return FakeGit("a" * 40)(command, **kw)
+
+    with pytest.raises(RuntimeError, match="--depth 1 .* failed: fatal: repository not found"):
+        ensure_git_source(GitSource("https://example.org/r.git", "a" * 40), tmp_path / "x", run=run, **QUIET)
+
+
+@needs_git
+def test_a_commit_on_no_branch_says_so_after_the_fallback(upstream, tmp_path, monkeypatch):
+    url, *_ = upstream
+    real = subprocess.run
+
+    def refusing(command, **kw):
+        if "--depth" in command:
+            raise subprocess.CalledProcessError(128, command, stderr="fatal: not our ref")
+        return real(command, **kw)
+
+    with pytest.raises(RuntimeError, match="not on any branch or tag"):
+        ensure_git_source(GitSource(url, "f" * 40), tmp_path / "x", run=refusing, **QUIET)
+
+
+def test_ssh_never_prompts_unless_the_caller_set_it(tmp_path, monkeypatch):
+    monkeypatch.delenv("GIT_SSH_COMMAND", raising=False)
+    monkeypatch.delenv("GIT_SSH", raising=False)
+    assert "BatchMode=yes" in isolated._git_environ()["GIT_SSH_COMMAND"]
 
 
 def test_a_second_waiter_reuses_the_first_fetch(tmp_path):

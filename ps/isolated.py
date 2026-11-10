@@ -197,6 +197,8 @@ GIT_LOCATION_VARS = (
     "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
     "GIT_SHALLOW_FILE", "GIT_COMMON_DIR",
 )
+#: What a server says when it will not send one commit by its SHA.
+_SHA_REFUSED = ("not our ref", "unadvertised object", "does not allow request")
 #: Never wait on a credential prompt (a terminal one, or Git Credential Manager's window).
 _GIT_NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
 
@@ -217,7 +219,7 @@ class GitSource:
     >>> GitSource("https://example.org/r.git", "main")
     Traceback (most recent call last):
       ...
-    ValueError: GitSource needs a full commit SHA (40 hex characters), not 'main'
+    ValueError: GitSource needs a full commit SHA (40 or 64 lowercase hex characters), not 'main'
     """
 
     url: str
@@ -226,7 +228,7 @@ class GitSource:
     def __post_init__(self):
         if not _FULL_SHA.fullmatch(self.commit):
             raise ValueError(
-                "GitSource needs a full commit SHA (40 hex characters), "
+                "GitSource needs a full commit SHA (40 or 64 lowercase hex characters), "
                 f"not {self.commit!r}"
             )
 
@@ -247,6 +249,8 @@ class GitSource:
 
 def _git_environ() -> dict:
     env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION_VARS}
+    if "GIT_SSH_COMMAND" not in env and "GIT_SSH" not in env:
+        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"  # no host-key or passphrase prompt
     return {**env, **_GIT_NO_PROMPT}
 
 
@@ -318,8 +322,11 @@ def _rmtree(path: Path) -> None:
     """Remove ``path`` if it exists, read-only files included (git's objects, on Windows)."""
     import stat
 
-    def clear_and_retry(func, name, _exc):
-        os.chmod(name, stat.S_IWRITE)
+    def clear_and_retry(func, name, exc):
+        error = exc[1] if isinstance(exc, tuple) else exc  # onerror passes exc_info
+        if not isinstance(error, PermissionError) or func not in (os.unlink, os.rmdir):
+            raise error
+        os.chmod(name, os.stat(name).st_mode | stat.S_IWRITE)
         func(name)
 
     if path.exists():
@@ -389,12 +396,24 @@ def _fetch_git_source(source: GitSource, path: Path, *, run, log) -> None:
     log(f"Fetching {source.url} at {source.commit[:12]} into {path} (one-time)")
     init, fetch, checkout = source.fetch_commands(partial)
     _git(run, *init[1:])
+    # no background gc or maintenance holding files in .partial (it is renamed next)
+    _git(run, "-C", str(partial), "config", "gc.auto", "0")
+    _git(run, "-C", str(partial), "config", "maintenance.auto", "false")
     try:
         _git(run, *fetch[1:])
-    except RuntimeError:  # the server will not send a commit by SHA ("not our ref")
+    except RuntimeError as error:
+        if not any(sign in str(error) for sign in _SHA_REFUSED):
+            raise  # a wrong URL, no access: the first error is the one to see
         refs = ("+refs/heads/*:refs/remotes/origin/*", "+refs/tags/*:refs/tags/*")
         _git(run, "-C", str(partial), "fetch", "--quiet", "--filter=blob:none",
              source.url, *refs)
+        try:
+            _git(run, "-C", str(partial), "cat-file", "-e", source.commit + "^{commit}")
+        except RuntimeError:
+            raise RuntimeError(
+                f"{source.commit[:12]} is not on any branch or tag of {source.url} "
+                "(and the server will not send it by its SHA)"
+            ) from None
     _git(run, *checkout[1:])
     check_git_source(source, partial, run=run)
     try:
@@ -403,19 +422,6 @@ def _fetch_git_source(source: GitSource, path: Path, *, run, log) -> None:
         if not path.is_dir():
             raise
         _rmtree(partial)  # another process's copy won
-
-
-#: ``(root, commit, stamp)`` of checkouts this process verified (see :meth:`Runtime.interpreter`).
-_CHECKED_SOURCES: set = set()
-
-
-def _checkout_stamp(root: Path) -> Optional[Tuple[int, int]]:
-    """When a checkout's ``HEAD`` and index last changed; None if they cannot be read."""
-    try:
-        git = root / ".git"
-        return ((git / "HEAD").stat().st_mtime_ns, (git / "index").stat().st_mtime_ns)
-    except OSError:  # a worktree's .git is a file: no stamp, no caching
-        return None
 
 
 @dataclass(frozen=True)
@@ -475,8 +481,9 @@ class Runtime:
     def interpreter(self) -> Path:
         """The runtime's Python, or :class:`RuntimeNotInstalled` with the setup commands.
 
-        With a :attr:`source`, the root is checked first (:func:`check_git_source`,
-        once per process while the checkout's ``HEAD`` and index are unchanged). A
+        With a :attr:`source`, the root is checked first (:func:`check_git_source`:
+        two local git calls, some 20 ms, on every call; not cached, since a cache
+        keyed on file times misses ``git reset`` and later edits). A
         root the runtime chose (under the base or default directory) that fails it
         raises :class:`SourceMismatch`, saying how to move it to the pinned commit;
         a root named by :attr:`env_var` is the user's own installation, so the
@@ -490,9 +497,6 @@ class Runtime:
 
     def _check_source(self) -> None:
         root = self.root()
-        key = (str(root.resolve()), self.source.commit, _checkout_stamp(root))
-        if key[2] is not None and key in _CHECKED_SOURCES:
-            return
         try:
             check_git_source(self.source, root)
         except SourceMismatch as error:
@@ -509,7 +513,6 @@ class Runtime:
                 )
                 return
             raise SourceMismatch(message) from None
-        _CHECKED_SOURCES.add(key)
 
     def workdir(self) -> Path:
         """The directory the runtime's processes run in."""
