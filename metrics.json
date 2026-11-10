@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.9321680068969727,
-  "commit_message": "wait_and_reap: review fixes\n\nReap on any exception (Ctrl-C does not reach a child in its own session); bounded\nwait after the kill; (pid, start time) pairs read every pass; no watch thread on\nWindows; interval validated; tests for the interrupted wait and for a worker in\nthe caller's own group; the timeout test waits for its pidfile first.",
-  "commit_sha": "a0051ee8200ed9ecff1fe0a2d003df2cd5521174",
+  "collection_duration_seconds": 2.6281044483184814,
+  "commit_message": "Merge a0051ee8200ed9ecff1fe0a2d003df2cd5521174 into 4fcd0f8a95c0bac610f6af12f37c9b2d8ed8092c",
+  "commit_sha": "eb73a0b0d9536271e1529fbf8c8d38cbac36d7ac",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 11303,
-      "comment_lines_ratio": 0.05353675056601271,
-      "docs_lines": 16376,
-      "empty_lines": 24234,
-      "empty_lines_ratio": 0.11478453624849616,
-      "files_analyzed": 533,
-      "function_lines": 78143,
-      "function_lines_ratio": 0.3701249490825384,
-      "mean_lines_per_function": 16.029333333333334,
-      "num_classes": 1327,
-      "num_functions": 4875,
+      "comment_lines": 10870,
+      "comment_lines_ratio": 0.053090948164284,
+      "docs_lines": 15451,
+      "empty_lines": 23185,
+      "empty_lines_ratio": 0.11323952467239418,
+      "files_analyzed": 522,
+      "function_lines": 73673,
+      "function_lines_ratio": 0.359831593754121,
+      "mean_lines_per_function": 16.113954505686788,
+      "num_classes": 1266,
+      "num_functions": 4572,
       "pypi_version": "0.1.21",
-      "total_lines": 211126
+      "total_lines": 204743
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T20:18:27.471839Z",
+  "timestamp": "2026-11-10T20:18:33.141048Z",
   "workflow_status": {}
 }
