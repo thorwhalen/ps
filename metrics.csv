@@ -1,6 +1,6 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T20:20:32.797896Z
+timestamp,2026-11-10T20:20:41.733523Z
 commit_sha,ec4f9b1fb9e527ce2c4f88c87fbe52dafffb4172
 commit_message,"wait_and_reap: kill what a process started however it ends; start_time (#24)
 
@@ -20,18 +20,18 @@ wait after the kill; (pid, start time) pairs read every pass; no watch thread on
 Windows; interval validated; tests for the interrupted wait and for a worker in
 the caller's own group; the timeout test waits for its pidfile first."
 python_version,3.10
-metrics.umpyre_stats.num_functions,4875
-metrics.umpyre_stats.num_classes,1327
-metrics.umpyre_stats.total_lines,211126
-metrics.umpyre_stats.empty_lines,24234
-metrics.umpyre_stats.comment_lines,11303
-metrics.umpyre_stats.docs_lines,16376
-metrics.umpyre_stats.function_lines,78143
-metrics.umpyre_stats.empty_lines_ratio,0.11478453624849616
-metrics.umpyre_stats.comment_lines_ratio,0.05353675056601271
-metrics.umpyre_stats.function_lines_ratio,0.3701249490825384
-metrics.umpyre_stats.mean_lines_per_function,16.029333333333334
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4572
+metrics.umpyre_stats.num_classes,1266
+metrics.umpyre_stats.total_lines,204743
+metrics.umpyre_stats.empty_lines,23185
+metrics.umpyre_stats.comment_lines,10870
+metrics.umpyre_stats.docs_lines,15451
+metrics.umpyre_stats.function_lines,73673
+metrics.umpyre_stats.empty_lines_ratio,0.11323952467239418
+metrics.umpyre_stats.comment_lines_ratio,0.053090948164284
+metrics.umpyre_stats.function_lines_ratio,0.359831593754121
+metrics.umpyre_stats.mean_lines_per_function,16.113954505686788
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.21
 metrics.workflow_status.last_run_status,failure
 metrics.workflow_status.last_success_timestamp,2026-11-10T20:18:41Z
@@ -49,4 +49,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.406665086746216
+collection_duration_seconds,2.8842897415161133
