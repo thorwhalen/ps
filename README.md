@@ -239,6 +239,24 @@ So now we have:
     >>> isinstance(output, str)  # it's already decoded for us!
     True
 
+# Running code in another Python environment: `ps.isolated`
+
+When a library cannot share your environment (it pins its own torch, numpy or MLX), `ps.isolated` runs it in its own environment and talks to it, with the standard library only.
+
+```python
+from ps.isolated import EnvSpec, ensure_env, Worker
+
+# Build an environment once with uv (a changed spec rebuilds it).
+python = ensure_env(EnvSpec("tool", ("numpy<2",)), "~/envs/tool")
+
+# my_adapter.py defines load(**init) -> state and operations op(state, **kw) -> dict;
+# it imports nothing from your code, and ps need not be installed in that environment.
+with Worker(python, "my_adapter.py", init={"size": "small"}) as w:
+    w.call("analyze", path="clip.wav")   # the model loads once, on the first call
+```
+
+A worker stays alive between calls, keeps library output away from its JSON-lines protocol, writes its stderr to a log whose tail goes into errors (or to your terminal with `stderr=None`), and is killed and restarted after an interrupted exchange. `Runtime` locates an environment installed by hand and raises `RuntimeNotInstalled` with its install commands; `run_process` is the one-shot alternative. See the module docstring for the full API.
+
 # Misc tools 
 
 ## ps.misc.run_commands_in_dir
@@ -268,6 +286,10 @@ Notes:
 
 
 # Notes
+
+## Commands are found on first use
+
+`import ps` no longer scans your `PATH`: the scan happens on the first command lookup (`ps.ls`, `from ps import ls`, `from ps import *`, `dir(ps)`). Those all work as before, but the commands are no longer entries of the module's `__dict__` (`vars(ps)`).
 
 ## Auto docs
 

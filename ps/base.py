@@ -312,7 +312,7 @@ class Commands(Mapping):
     Let's see if these docs have a few things we expect it to have for ``ls``:
 
     >>> assert 'BSD General Commands Manual' in man_page  # doctest: +SKIP
-    >>> assert 'list directory contents' in man_page
+    >>> assert 'list directory contents' in man_page.lower()  # uutils: 'List directory...'
 
     Let's see what the output of ``ls`` gives us:
 

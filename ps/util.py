@@ -93,7 +93,47 @@ def _validated_timeout(timeout):
     return None if isinf(timeout) else timeout
 
 
-def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT):
+#: ``Popen`` arguments that start a process as the leader of its own group, so
+#: :func:`kill_process_tree` can take its descendants down with it. On POSIX that
+#: is a new session: the process also leaves the terminal's process group, so a
+#: Ctrl-C or SIGHUP sent to the terminal does not reach it, and if the host is
+#: killed outright (SIGKILL) the process is not killed with it.
+NEW_PROCESS_GROUP = {} if os.name == "nt" else {"start_new_session": True}
+
+
+def kill_process_tree(process):
+    """Kill ``process`` and everything it spawned.
+
+    On POSIX the process must have been started with :data:`NEW_PROCESS_GROUP`:
+    its whole group is killed, even when ``process`` itself already exited (its
+    children may live on). On Windows ``taskkill /T`` follows the tree from a live
+    ``process``; children it left behind when it exited cannot be found that way.
+    ``process`` itself is killed in any case.
+    """
+    if os.name == "nt":
+        if process.poll() is None:
+            from subprocess import DEVNULL, call
+
+            try:
+                call(
+                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                    stdout=DEVNULL,
+                    stderr=DEVNULL,
+                )
+            except OSError:
+                pass
+    else:
+        import signal
+
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except OSError:  # no such group (all gone, or not started as a leader)
+            pass
+    if process.poll() is None:
+        process.kill()
+
+
+def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT, kill=None):
     """Kill ``process`` and let go of its pipes, without blocking the caller.
 
     ``Popen.communicate`` drains the pipes, but a killed child can leave
@@ -103,10 +143,14 @@ def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT):
     (where that is safe -- see ``_CAN_CLOSE_PIPES_MID_READ``) and collecting the
     already-killed direct child.
 
-    Note that only the direct child is killed: anything *it* spawned is not ours
-    to find, and outlives the call.
+    By default only the direct child is killed: anything *it* spawned is not ours
+    to find, and outlives the call. Pass ``kill=kill_process_tree`` (for a process
+    started with :data:`NEW_PROCESS_GROUP`) to kill its descendants too.
     """
-    process.kill()
+    if kill is None:
+        process.kill()
+    else:
+        kill(process)
     try:
         process.communicate(timeout=reap_timeout)
         return
