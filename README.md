@@ -276,7 +276,11 @@ from ps import isolated
 SPECS = {"tool": isolated.EnvSpec("tool", ("numpy<2",))}
 
 if __name__ == "__main__":
-    sys.exit(isolated.cli(SPECS, env_dir=lambda name: f"~/envs/{name}", prog="python -m mypkg.envs"))
+    sys.exit(
+        isolated.cli(
+            SPECS, env_dir=lambda name: f"~/envs/{name}", prog="python -m mypkg.envs"
+        )
+    )
 ```
 
 Workers also cope with an interpreter whose OpenSSL has no CA certificates (a MacPorts or Homebrew Python without its CA file): `serve_adapter` points `SSL_CERT_FILE` at the system bundle, or certifi's, before the adapter loads, so `urllib` HTTPS verifies. A bundle you set yourself wins, and Windows is left to its system store.
