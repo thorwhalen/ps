@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.9021971225738525,
-  "commit_message": "kill_process_tree reaches processes in sessions of their own, spares the caller's group, and leaves a reused pid alone; descendants(); Worker resolves a relative python (#16, #13)",
-  "commit_sha": "a2558580940f8d4f7f341f81075caadcff355ce6",
+  "collection_duration_seconds": 3.527618169784546,
+  "commit_message": "Merge a2558580940f8d4f7f341f81075caadcff355ce6 into ed38eacaeeaace60c1c78b9336fe52e11aa6de92",
+  "commit_sha": "ef55f60b97da382b7aae42dbbacfa2c2609f1788",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10865,
-      "comment_lines_ratio": 0.05319305185649381,
-      "docs_lines": 15306,
-      "empty_lines": 23113,
-      "empty_lines_ratio": 0.11315701864327118,
-      "files_analyzed": 522,
-      "function_lines": 73204,
-      "function_lines_ratio": 0.35839338868870435,
-      "mean_lines_per_function": 16.07113062568606,
-      "num_classes": 1266,
-      "num_functions": 4555,
+      "comment_lines": 11298,
+      "comment_lines_ratio": 0.053636790907666675,
+      "docs_lines": 16231,
+      "empty_lines": 24162,
+      "empty_lines_ratio": 0.11470810248814323,
+      "files_analyzed": 533,
+      "function_lines": 77674,
+      "function_lines_ratio": 0.36875412435493904,
+      "mean_lines_per_function": 15.98888431453273,
+      "num_classes": 1327,
+      "num_functions": 4858,
       "pypi_version": "0.1.17",
-      "total_lines": 204256
+      "total_lines": 210639
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:34:25.472369Z",
+  "timestamp": "2026-11-10T14:34:27.688574Z",
   "workflow_status": {}
 }
