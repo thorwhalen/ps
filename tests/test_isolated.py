@@ -369,6 +369,18 @@ def test_round_trip_survives_stdout_noise_at_import_and_call_time(echo, tmp_path
         assert noise in text
 
 
+def test_a_relative_adapter_path_is_resolved_against_the_hosts_directory(
+    echo, tmp_path, monkeypatch
+):
+    """The worker runs elsewhere (an empty folder by default), so the path is made absolute."""
+    monkeypatch.chdir(echo.parent.parent)
+    relative = os.path.join(echo.parent.name, echo.name)
+    worker = _worker(relative, tmp_path)
+    assert worker.adapter == str(echo)
+    with worker as w:
+        assert w.call("echo", x=1) == {"state": {}, "x": 1}
+
+
 def test_a_string_path_is_an_adapter_too(echo, tmp_path):
     with _worker(str(echo), tmp_path) as w:
         assert w.call("echo", x=1) == {"state": {}, "x": 1}
@@ -670,7 +682,7 @@ def test_spawn_gets_the_command_and_a_clean_environment(tmp_path, monkeypatch):
     assert w.call("op") == 7
     argv, kwargs = seen[0]
     assert argv[:3] == ["py", "-u", "-c"]
-    assert argv[-2:] == [isolated.__file__, "a_adapter.py"]
+    assert argv[-2:] == [isolated.__file__, os.path.abspath("a_adapter.py")]
     assert kwargs["cwd"] == str(tmp_path) and kwargs["env"]["X"] == "1"
     assert "PYTHONPATH" not in kwargs["env"]
     assert json.loads(w._proc.stdin.getvalue().splitlines()[0]) == {
