@@ -1,21 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:18:56.962796Z
+timestamp,2026-11-10T14:19:03.449207Z
 commit_sha,6a38457167619dc3088f515c3c8f89270bc19453
 commit_message,"GitSource review fixes: Windows read-only cleanup, strip only git's location vars and never prompt, blobless fallback when a server refuses a SHA, cached and non-locking check, env_var roots warn, private lock, SHA-256"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4854
-metrics.umpyre_stats.num_classes,1327
-metrics.umpyre_stats.total_lines,210522
-metrics.umpyre_stats.empty_lines,24151
-metrics.umpyre_stats.comment_lines,11292
-metrics.umpyre_stats.docs_lines,16213
-metrics.umpyre_stats.function_lines,77561
-metrics.umpyre_stats.empty_lines_ratio,0.11471960175183592
-metrics.umpyre_stats.comment_lines_ratio,0.05363809958104141
-metrics.umpyre_stats.function_lines_ratio,0.3684223026572045
-metrics.umpyre_stats.mean_lines_per_function,15.978780387309435
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4551
+metrics.umpyre_stats.num_classes,1266
+metrics.umpyre_stats.total_lines,204139
+metrics.umpyre_stats.empty_lines,23102
+metrics.umpyre_stats.comment_lines,10859
+metrics.umpyre_stats.docs_lines,15288
+metrics.umpyre_stats.function_lines,73091
+metrics.umpyre_stats.empty_lines_ratio,0.11316798847843872
+metrics.umpyre_stats.comment_lines_ratio,0.05319414712524309
+metrics.umpyre_stats.function_lines_ratio,0.358045253479247
+metrics.umpyre_stats.mean_lines_per_function,16.060426279938476
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.16
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-10T14:12:15Z
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.924219846725464
+collection_duration_seconds,2.488743305206299
