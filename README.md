@@ -267,7 +267,7 @@ repo = ensure_git_source(
 )
 ```
 
-A host with several named environments gets a command line in a few lines: `cli(specs, env_dir=...)` gives `build name ...`, `status`, and `lock name ...` (with `locks=`, where each lock is `compile_lock` bound to the spec's requirements, Python and `torch_backend`; `lock_requirements` reads a lock back into a spec). `build_envs` and `env_status` are its parts, for a host that keeps its own parser.
+A host with several named environments gets a command line in a few lines: `cli(specs, env_dir=...)` gives `build name ...`, `status`, and `lock name ...` (with `locks=`, where each lock is a function, typically `compile_lock` bound to the environment's top-level requirements and its spec's Python and `torch_backend`; `lock_requirements` reads a lock back into a spec's requirements). `build_envs` and `env_status` are its parts, for a host that keeps its own parser.
 
 ```python
 import sys
