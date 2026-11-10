@@ -376,7 +376,9 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
 
     timeout = _validated_timeout(timeout)
     if not interval > 0:
-        raise ValueError(f"interval should be a positive number of seconds. Got: {interval!r}")
+        raise ValueError(
+            f"interval should be a positive number of seconds. Got: {interval!r}"
+        )
     seen = set()  # (pid, start time) pairs: a recycled pid is a new pair
     stop = threading.Event()
 
