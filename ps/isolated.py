@@ -1021,13 +1021,68 @@ def _adapter_handler(adapter) -> Callable[[dict], Any]:
     return handle
 
 
+#: Where systems keep their CA bundle (macOS, Debian/Ubuntu, RHEL/Fedora, openSUSE, Alpine).
+SYSTEM_CA_BUNDLES = (
+    "/etc/ssl/cert.pem",
+    "/etc/ssl/certs/ca-certificates.crt",
+    "/etc/pki/tls/certs/ca-bundle.crt",
+    "/etc/ssl/ca-bundle.pem",
+)
+
+
+def ensure_ca_bundle(
+    *, environ: Optional[dict] = None, verify_paths: Optional[Callable] = None
+) -> Optional[str]:
+    """Point ``SSL_CERT_FILE`` at a CA bundle when this Python's OpenSSL has none; return it.
+
+    An environment's interpreter is whichever Python ``uv`` found first, and some (a
+    MacPorts Python without ``curl-ca-bundle``, say) ship an OpenSSL whose CA folder
+    is empty, so every HTTPS request made with ``urllib`` fails to verify. When
+    ``SSL_CERT_FILE`` is unset and OpenSSL's default file and folder hold nothing,
+    this sets it to ``certifi``'s bundle if certifi is installed, else to the first
+    :data:`SYSTEM_CA_BUNDLES` that exists. Verification stays on. Every
+    :func:`serve_adapter` worker runs it before loading its adapter.
+
+    Returns:
+        The bundle it set, or None (nothing to do, or nothing found).
+    """
+    import ssl
+
+    env = os.environ if environ is None else environ
+    if env.get("SSL_CERT_FILE") or env.get("SSL_CERT_DIR"):
+        return None
+    paths = (verify_paths or ssl.get_default_verify_paths)()
+
+    def holds_certs(file, folder):
+        if file and os.path.isfile(file):
+            return True
+        try:
+            return bool(folder) and any(os.scandir(folder))
+        except OSError:
+            return False
+
+    if holds_certs(paths.openssl_cafile, paths.openssl_capath):
+        return None
+    try:
+        import certifi
+
+        bundle = certifi.where()
+    except ImportError:
+        bundle = next((b for b in SYSTEM_CA_BUNDLES if os.path.isfile(b)), None)
+    if bundle:
+        env["SSL_CERT_FILE"] = bundle
+    return bundle
+
+
 def serve_adapter(path: PathLike) -> None:
     """Load the adapter file at ``path`` and answer JSON requests on stdin (what a :class:`Worker` runs).
 
     stdout is protected before the adapter is loaded, so what it prints on import goes
-    to stderr too; the adapter's folder is put first on ``sys.path``.
+    to stderr too; the adapter's folder is put first on ``sys.path``; an interpreter
+    whose OpenSSL has no CA bundle gets one (:func:`ensure_ca_bundle`).
     """
     replies = _protect_stdout()
+    ensure_ca_bundle()  # before the adapter's imports make an SSL context
     path = os.path.abspath(os.fspath(path))
     sys.path.insert(0, os.path.dirname(path))
     spec = importlib.util.spec_from_file_location("ps_isolated_adapter", path)
