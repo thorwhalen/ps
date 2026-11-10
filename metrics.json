@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.881267547607422,
+  "collection_duration_seconds": 3.150438070297241,
   "commit_message": "GitSource re-review fixes: no check cache (missed git reset and later edits), fall back only when a server refuses a SHA and say when the commit is on no ref, ssh BatchMode, no gc in .partial, rmtree handler only for read-only files",
   "commit_sha": "3b7c17da1834393e98cd6342d218aaa80e8e5ac2",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10860,
-      "comment_lines_ratio": 0.05319774276980955,
-      "docs_lines": 15288,
-      "empty_lines": 23098,
-      "empty_lines_ratio": 0.11314562269770358,
-      "files_analyzed": 522,
-      "function_lines": 73103,
-      "function_lines_ratio": 0.3580952660866839,
-      "mean_lines_per_function": 16.066593406593405,
-      "num_classes": 1266,
-      "num_functions": 4550,
+      "comment_lines": 11293,
+      "comment_lines_ratio": 0.053641575664879086,
+      "docs_lines": 16213,
+      "empty_lines": 24147,
+      "empty_lines_ratio": 0.11469787723189899,
+      "files_analyzed": 533,
+      "function_lines": 77573,
+      "function_lines_ratio": 0.3684705524707045,
+      "mean_lines_per_function": 15.984545641871007,
+      "num_classes": 1327,
+      "num_functions": 4853,
       "pypi_version": "0.1.16",
-      "total_lines": 204144
+      "total_lines": 210527
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:24:32.930536Z",
+  "timestamp": "2026-11-10T14:24:37.473252Z",
   "workflow_status": {}
 }
