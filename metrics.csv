@@ -1,45 +1,36 @@
 metric,value
 schema_version,1.0
-timestamp,2026-10-20T17:39:43.455435Z
-commit_sha,cf601c23bef7cf786993d28ed6f453a1b7999c96
-commit_message,"Keep Command's class docstring reachable so its doctest runs (#6) (#11)
-
-A __doc__ property hid the class docstring from doctest and help; a
-descriptor now returns the docstring on the class and the command's help
-on an instance. The new doctest wraps pwd, so it joins POSIX_ONLY_DOCTESTS.
-
-Co-authored-by: Claude Opus 5.5 <noreply@anthropic.com>"
+timestamp,2026-11-10T10:06:07.976089Z
+commit_sha,44fed4e52b140947cd1433434341898f3fda39b9
+commit_message,Doctest: match ls's help case-insensitively (uutils coreutils on ubuntu-26.04 capitalises it)
 python_version,3.10
-metrics.umpyre_stats.num_functions,4725
-metrics.umpyre_stats.num_classes,1314
-metrics.umpyre_stats.total_lines,207366
-metrics.umpyre_stats.empty_lines,23717
-metrics.umpyre_stats.comment_lines,11014
-metrics.umpyre_stats.docs_lines,15671
-metrics.umpyre_stats.function_lines,75307
-metrics.umpyre_stats.empty_lines_ratio,0.11437265511221704
-metrics.umpyre_stats.comment_lines_ratio,0.053113818080109565
-metrics.umpyre_stats.function_lines_ratio,0.3631598236933731
-metrics.umpyre_stats.mean_lines_per_function,15.937989417989417
-metrics.umpyre_stats.files_analyzed,531
-metrics.umpyre_stats.pypi_version,0.1.13
+metrics.umpyre_stats.num_functions,4540
+metrics.umpyre_stats.num_classes,1265
+metrics.umpyre_stats.total_lines,203785
+metrics.umpyre_stats.empty_lines,23056
+metrics.umpyre_stats.comment_lines,10848
+metrics.umpyre_stats.docs_lines,15233
+metrics.umpyre_stats.function_lines,72820
+metrics.umpyre_stats.empty_lines_ratio,0.11313884731457173
+metrics.umpyre_stats.comment_lines_ratio,0.0532325735456486
+metrics.umpyre_stats.function_lines_ratio,0.35733738989621416
+metrics.umpyre_stats.mean_lines_per_function,16.03964757709251
+metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.pypi_version,0.1.14
 metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-10-20T17:38:08Z
-metrics.workflow_status.recent_failure_count,3
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/39467841656
+metrics.workflow_status.last_success_timestamp,2026-10-20T17:41:12Z
+metrics.workflow_status.recent_failure_count,5
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42795824986
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
 metrics.wily.total_loc,0
 metrics.wily.files_analyzed,0
-metrics.wily.error,"wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...
-Try 'wily report --help' for help.
-
-Error: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.
+metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
 "
 metrics.coverage.line_coverage,0.0
 metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.7096550464630127
+collection_duration_seconds,2.0477445125579834
