@@ -1,8 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:44:46.139813Z
-commit_sha,e3de2ffc30bd8bf0c5efcfbda6d513c07a8b2ff5
-commit_message,Merge d1d5df1e167a72043de4886a9dacec6db0a8ffd7 into ed38eacaeeaace60c1c78b9336fe52e11aa6de92
+timestamp,2026-11-10T14:44:52.314470Z
+commit_sha,d1d5df1e167a72043de4886a9dacec6db0a8ffd7
+commit_message,ps.isolated: workers on a Python whose OpenSSL has no CA bundle get one (ensure_ca_bundle) (#15)
 python_version,3.10
 metrics.umpyre_stats.num_functions,4552
 metrics.umpyre_stats.num_classes,1266
@@ -17,10 +17,10 @@ metrics.umpyre_stats.function_lines_ratio,0.35824857124667603
 metrics.umpyre_stats.mean_lines_per_function,16.0707381370826
 metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.17
-metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_run_status,failure
 metrics.workflow_status.last_success_timestamp,2026-11-10T14:42:13Z
-metrics.workflow_status.recent_failure_count,1
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42836536701
+metrics.workflow_status.recent_failure_count,2
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42837102493
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -36,4 +36,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.239490509033203
+collection_duration_seconds,2.808725595474243
