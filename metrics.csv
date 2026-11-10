@@ -1,38 +1,26 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:27:19.282789Z
-commit_sha,09a5cf3e7485b303e6cd6360333a9b8c6576854e
-commit_message,"ps.isolated: pinned git sources (GitSource, ensure_git_source, Runtime(source=)) (#19)
-
-* ps.isolated: GitSource, ensure_git_source, check_git_source, dir_lock; Runtime(source=) pins a checkout (#18)
-
-Moved from voxy.envs (voxy#123): a repository at one full commit SHA, fetched once
-(that commit only) under a lock into a .partial folder renamed into place, verified on
-every reuse (HEAD is the commit, no edits to tracked files), git run without GIT_*.
-Runtime gains source=: its hint checks the commit out, interpreter() refuses a root at
-another commit (SourceMismatch, a RuntimeNotInstalled, with the commands to move it).
-
-* GitSource review fixes: Windows read-only cleanup, strip only git's location vars and never prompt, blobless fallback when a server refuses a SHA, cached and non-locking check, env_var roots warn, private lock, SHA-256
-
-* GitSource re-review fixes: no check cache (missed git reset and later edits), fall back only when a server refuses a SHA and say when the commit is on no ref, ssh BatchMode, no gc in .partial, rmtree handler only for read-only files"
+timestamp,2026-11-10T14:28:48.645840Z
+commit_sha,2adba86dc807dc9d66d798198d40f4c90a7f6812
+commit_message,"ps.isolated: lock_requirements, compile_lock and a build/status/lock cli over named environments (#17)"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4550
+metrics.umpyre_stats.num_functions,4555
 metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204144
-metrics.umpyre_stats.empty_lines,23098
-metrics.umpyre_stats.comment_lines,10860
-metrics.umpyre_stats.docs_lines,15288
-metrics.umpyre_stats.function_lines,73103
-metrics.umpyre_stats.empty_lines_ratio,0.11314562269770358
-metrics.umpyre_stats.comment_lines_ratio,0.05319774276980955
-metrics.umpyre_stats.function_lines_ratio,0.3580952660866839
-metrics.umpyre_stats.mean_lines_per_function,16.066593406593405
+metrics.umpyre_stats.total_lines,204284
+metrics.umpyre_stats.empty_lines,23119
+metrics.umpyre_stats.comment_lines,10864
+metrics.umpyre_stats.docs_lines,15334
+metrics.umpyre_stats.function_lines,73233
+metrics.umpyre_stats.empty_lines_ratio,0.11317087975563431
+metrics.umpyre_stats.comment_lines_ratio,0.05318086585341975
+metrics.umpyre_stats.function_lines_ratio,0.3584862250592313
+metrics.umpyre_stats.mean_lines_per_function,16.077497255762896
 metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.16
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-10T14:24:48Z
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T14:28:24Z
 metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42834014943
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42834319430
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -45,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.8969476222991943
+collection_duration_seconds,2.9120302200317383

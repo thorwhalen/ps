@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.8969476222991943,
-  "commit_message": "ps.isolated: pinned git sources (GitSource, ensure_git_source, Runtime(source=)) (#19)\n\n* ps.isolated: GitSource, ensure_git_source, check_git_source, dir_lock; Runtime(source=) pins a checkout (#18)\n\nMoved from voxy.envs (voxy#123): a repository at one full commit SHA, fetched once\n(that commit only) under a lock into a .partial folder renamed into place, verified on\nevery reuse (HEAD is the commit, no edits to tracked files), git run without GIT_*.\nRuntime gains source=: its hint checks the commit out, interpreter() refuses a root at\nanother commit (SourceMismatch, a RuntimeNotInstalled, with the commands to move it).\n\n* GitSource review fixes: Windows read-only cleanup, strip only git's location vars and never prompt, blobless fallback when a server refuses a SHA, cached and non-locking check, env_var roots warn, private lock, SHA-256\n\n* GitSource re-review fixes: no check cache (missed git reset and later edits), fall back only when a server refuses a SHA and say when the commit is on no ref, ssh BatchMode, no gc in .partial, rmtree handler only for read-only files",
-  "commit_sha": "09a5cf3e7485b303e6cd6360333a9b8c6576854e",
+  "collection_duration_seconds": 2.9120302200317383,
+  "commit_message": "ps.isolated: lock_requirements, compile_lock and a build/status/lock cli over named environments (#17)",
+  "commit_sha": "2adba86dc807dc9d66d798198d40f4c90a7f6812",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10860,
-      "comment_lines_ratio": 0.05319774276980955,
-      "docs_lines": 15288,
-      "empty_lines": 23098,
-      "empty_lines_ratio": 0.11314562269770358,
+      "comment_lines": 10864,
+      "comment_lines_ratio": 0.05318086585341975,
+      "docs_lines": 15334,
+      "empty_lines": 23119,
+      "empty_lines_ratio": 0.11317087975563431,
       "files_analyzed": 522,
-      "function_lines": 73103,
-      "function_lines_ratio": 0.3580952660866839,
-      "mean_lines_per_function": 16.066593406593405,
+      "function_lines": 73233,
+      "function_lines_ratio": 0.3584862250592313,
+      "mean_lines_per_function": 16.077497255762896,
       "num_classes": 1266,
-      "num_functions": 4550,
+      "num_functions": 4555,
       "pypi_version": "0.1.16",
-      "total_lines": 204144
+      "total_lines": 204284
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -33,15 +33,15 @@
       "total_loc": 0
     },
     "workflow_status": {
-      "last_run_status": "failure",
-      "last_success_timestamp": "2026-11-10T14:24:48Z",
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-11-10T14:28:24Z",
       "recent_failure_count": 2,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42834014943",
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42834319430",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:27:19.282789Z",
+  "timestamp": "2026-11-10T14:28:48.645840Z",
   "workflow_status": {}
 }
