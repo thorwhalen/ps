@@ -1,21 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:58:23.306488Z
+timestamp,2026-11-10T14:58:29.030310Z
 commit_sha,61e4437020983f2a15d76057f0554bd26d9cb241
 commit_message,"ensure_ca_bundle review fixes: only hashed certs count in the folder and an empty file is none (Homebrew .keepme), Windows left to its store, system bundle before certifi, OpenSSL's own variable names, never fails a worker's start; tests check certificates load"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4856
-metrics.umpyre_stats.num_classes,1327
-metrics.umpyre_stats.total_lines,210602
-metrics.umpyre_stats.empty_lines,24158
-metrics.umpyre_stats.comment_lines,11294
-metrics.umpyre_stats.docs_lines,16230
-metrics.umpyre_stats.function_lines,77649
-metrics.umpyre_stats.empty_lines_ratio,0.1147092620203037
-metrics.umpyre_stats.comment_lines_ratio,0.05362722101404545
-metrics.umpyre_stats.function_lines_ratio,0.36870020227728134
-metrics.umpyre_stats.mean_lines_per_function,15.990321252059308
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4553
+metrics.umpyre_stats.num_classes,1266
+metrics.umpyre_stats.total_lines,204219
+metrics.umpyre_stats.empty_lines,23109
+metrics.umpyre_stats.comment_lines,10861
+metrics.umpyre_stats.docs_lines,15305
+metrics.umpyre_stats.function_lines,73179
+metrics.umpyre_stats.empty_lines_ratio,0.1131579333950318
+metrics.umpyre_stats.comment_lines_ratio,0.05318310245373839
+metrics.umpyre_stats.function_lines_ratio,0.3583359041029483
+metrics.umpyre_stats.mean_lines_per_function,16.072699319130244
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.17
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-10T14:57:19Z
@@ -36,4 +36,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.3981761932373047
+collection_duration_seconds,3.0864670276641846
