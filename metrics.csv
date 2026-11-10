@@ -1,37 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:42:45.110643Z
-commit_sha,b55fa9e232d91b1a464a592c0ba0b099043da168
-commit_message,"ps.isolated: only rebuild environments ps built; workers lead their own process group
-
-- ensure_env deletes a stale environment only when it holds ps's marker
-  (a provisional one is written right after `uv venv`, so a half-built env
-  still counts as ps's); a non-empty folder without it raises, and the
-  running interpreter's own environment is never replaced.
-- Workers start in their own process group; stopping one kills what it
-  spawned (a forked data loader), and kill() closes stdin only, so exit no
-  longer waits on a child holding the reply pipe.
-- kill_process_tree kills the POSIX group even when the leader already
-  exited; documents what Windows taskkill /T cannot reach.
-- ps/__init__: lazy __all__ for `from ps import *`, a locked first scan,
-  submodule guard from pkgutil; README notes the __dict__ change.
-- Docs: exit-time kill only helps daemon threads; process-group children
-  leave the terminal's group.
-
-Refs thorwhalen/arioso#56"
+timestamp,2026-11-10T10:42:47.362286Z
+commit_sha,f8f7969ecb15b8610fc405e5a1f4db0299417200
+commit_message,Merge b55fa9e232d91b1a464a592c0ba0b099043da168 into e03aee4fc01c729b0af02e1cdfa0b54080e30389
 python_version,3.10
-metrics.umpyre_stats.num_functions,4841
-metrics.umpyre_stats.num_classes,1325
-metrics.umpyre_stats.total_lines,210193
-metrics.umpyre_stats.empty_lines,24108
-metrics.umpyre_stats.comment_lines,11282
-metrics.umpyre_stats.docs_lines,16157
-metrics.umpyre_stats.function_lines,77328
-metrics.umpyre_stats.empty_lines_ratio,0.1146945902099499
-metrics.umpyre_stats.comment_lines_ratio,0.05367448012065102
-metrics.umpyre_stats.function_lines_ratio,0.3678904625748717
-metrics.umpyre_stats.mean_lines_per_function,15.973559181987193
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4538
+metrics.umpyre_stats.num_classes,1264
+metrics.umpyre_stats.total_lines,203810
+metrics.umpyre_stats.empty_lines,23059
+metrics.umpyre_stats.comment_lines,10849
+metrics.umpyre_stats.docs_lines,15232
+metrics.umpyre_stats.function_lines,72858
+metrics.umpyre_stats.empty_lines_ratio,0.11313968892596045
+metrics.umpyre_stats.comment_lines_ratio,0.05323095039497571
+metrics.umpyre_stats.function_lines_ratio,0.35748000588783674
+metrics.umpyre_stats.mean_lines_per_function,16.055090348171
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.14
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-10T10:30:22Z
@@ -49,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.924238920211792
+collection_duration_seconds,2.429424524307251
