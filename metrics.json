@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 3.070374011993408,
-  "commit_message": "tests: Windows-safe fake install names; log tail may end in CRLF",
-  "commit_sha": "f353ecd0b82b7b4fbda280e674072326249c422e",
+  "collection_duration_seconds": 2.4149303436279297,
+  "commit_message": "Merge b55fa9e232d91b1a464a592c0ba0b099043da168 into e03aee4fc01c729b0af02e1cdfa0b54080e30389",
+  "commit_sha": "f8f7969ecb15b8610fc405e5a1f4db0299417200",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 11279,
-      "comment_lines_ratio": 0.05367552930762898,
-      "docs_lines": 16135,
-      "empty_lines": 24100,
-      "empty_lines_ratio": 0.11468926822536203,
+      "comment_lines": 11282,
+      "comment_lines_ratio": 0.05367448012065102,
+      "docs_lines": 16157,
+      "empty_lines": 24108,
+      "empty_lines_ratio": 0.1146945902099499,
       "files_analyzed": 533,
-      "function_lines": 77282,
-      "function_lines_ratio": 0.36777659863039125,
-      "mean_lines_per_function": 15.967355371900826,
+      "function_lines": 77328,
+      "function_lines_ratio": 0.3678904625748717,
+      "mean_lines_per_function": 15.973559181987193,
       "num_classes": 1325,
-      "num_functions": 4840,
+      "num_functions": 4841,
       "pypi_version": "0.1.14",
-      "total_lines": 210133
+      "total_lines": 210193
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -34,14 +34,14 @@
     },
     "workflow_status": {
       "last_run_status": "success",
-      "last_success_timestamp": "2026-11-10T10:28:20Z",
-      "recent_failure_count": 4,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42799261457",
+      "last_success_timestamp": "2026-11-10T10:30:22Z",
+      "recent_failure_count": 3,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42799510158",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T10:30:13.551500Z",
+  "timestamp": "2026-11-10T10:42:37.720673Z",
   "workflow_status": {}
 }
