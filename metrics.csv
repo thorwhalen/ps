@@ -1,32 +1,26 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:12:10.127257Z
-commit_sha,5a5408a86274aadacd76ef3eb330f5e9c1a2141f
-commit_message,"ps.isolated: GitSource, ensure_git_source, check_git_source, dir_lock; Runtime(source=) pins a checkout (#18)
-
-Moved from voxy.envs (voxy#123): a repository at one full commit SHA, fetched once
-(that commit only) under a lock into a .partial folder renamed into place, verified on
-every reuse (HEAD is the commit, no edits to tracked files), git run without GIT_*.
-Runtime gains source=: its hint checks the commit out, interpreter() refuses a root at
-another commit (SourceMismatch, a RuntimeNotInstalled, with the commands to move it)."
+timestamp,2026-11-10T14:18:56.962796Z
+commit_sha,6a38457167619dc3088f515c3c8f89270bc19453
+commit_message,"GitSource review fixes: Windows read-only cleanup, strip only git's location vars and never prompt, blobless fallback when a server refuses a SHA, cached and non-locking check, env_var roots warn, private lock, SHA-256"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4848
+metrics.umpyre_stats.num_functions,4854
 metrics.umpyre_stats.num_classes,1327
-metrics.umpyre_stats.total_lines,210415
-metrics.umpyre_stats.empty_lines,24139
-metrics.umpyre_stats.comment_lines,11287
-metrics.umpyre_stats.docs_lines,16215
-metrics.umpyre_stats.function_lines,77487
-metrics.umpyre_stats.empty_lines_ratio,0.11472090868046479
-metrics.umpyre_stats.comment_lines_ratio,0.05364161300287527
-metrics.umpyre_stats.function_lines_ratio,0.36825796639973385
-metrics.umpyre_stats.mean_lines_per_function,15.98329207920792
+metrics.umpyre_stats.total_lines,210522
+metrics.umpyre_stats.empty_lines,24151
+metrics.umpyre_stats.comment_lines,11292
+metrics.umpyre_stats.docs_lines,16213
+metrics.umpyre_stats.function_lines,77561
+metrics.umpyre_stats.empty_lines_ratio,0.11471960175183592
+metrics.umpyre_stats.comment_lines_ratio,0.05363809958104141
+metrics.umpyre_stats.function_lines_ratio,0.3684223026572045
+metrics.umpyre_stats.mean_lines_per_function,15.978780387309435
 metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.16
 metrics.workflow_status.last_run_status,success
-metrics.workflow_status.last_success_timestamp,2026-11-10T11:20:36Z
-metrics.workflow_status.recent_failure_count,4
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42806546394
+metrics.workflow_status.last_success_timestamp,2026-11-10T14:12:15Z
+metrics.workflow_status.recent_failure_count,3
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42831482666
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -39,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.8332724571228027
+collection_duration_seconds,2.924219846725464
