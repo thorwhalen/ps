@@ -218,7 +218,7 @@ def fake_uv(monkeypatch):
             site = Path(cmd[cmd.index("--python") + 1]).parent.parent / "site"
             site.mkdir(exist_ok=True)
             for req in (a for a in cmd[5:] if not a.startswith("-") and a != "cpu"):
-                (site / req).touch()
+                (site / re.sub(r"[^\w.-]", "_", req)).touch()  # Windows-safe
 
     run.commands = commands
     return run
@@ -350,7 +350,7 @@ def test_a_dying_worker_puts_its_log_tail_in_the_error(echo, tmp_path):
     with pytest.raises(WorkerError, match=r"(?s)exited \(code 3\).*dying clue") as err:
         worker.call("die", pad=3 * LOG_TAIL_CHARS)
     assert len(worker.log_tail()) == LOG_TAIL_CHARS
-    assert worker.log_tail().endswith("dying clue in the log\n")
+    assert worker.log_tail().rstrip().endswith("dying clue in the log")
     assert len(str(err.value)) < 2 * LOG_TAIL_CHARS
     assert not worker.running
     assert worker.call("echo", x=1) == {"state": {}, "x": 1}, "a fresh one starts"
