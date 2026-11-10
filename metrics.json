@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 3.567593812942505,
-  "commit_message": "wait_and_reap: kill what a process started however it ends; start_time\n\nkill_process_tree reads the tree below a live process, so a process that exits on\nits own (a crash, or between a timeout and the kill) leaves its re-parented\nworkers running. wait_and_reap watches the tree while waiting and, after any\nexit, kills the descendants it saw that are still the same processes (start\ntime), plus orphans in the process's own group. First customer: arioso compare\n(thorwhalen/arioso#67).",
-  "commit_sha": "626a06c488f6686a6173858605a212ac2c8db838",
+  "collection_duration_seconds": 2.865612268447876,
+  "commit_message": "Merge 626a06c488f6686a6173858605a212ac2c8db838 into 4fcd0f8a95c0bac610f6af12f37c9b2d8ed8092c",
+  "commit_sha": "63104ffc954bfd1341d53972129d61035d13670c",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10870,
-      "comment_lines_ratio": 0.05309276336355111,
-      "docs_lines": 15450,
-      "empty_lines": 23185,
-      "empty_lines_ratio": 0.11324339637386684,
-      "files_analyzed": 522,
-      "function_lines": 73669,
-      "function_lines_ratio": 0.3598243591747421,
-      "mean_lines_per_function": 16.113079615048118,
-      "num_classes": 1266,
-      "num_functions": 4572,
+      "comment_lines": 11303,
+      "comment_lines_ratio": 0.05353852566561986,
+      "docs_lines": 16375,
+      "empty_lines": 24234,
+      "empty_lines_ratio": 0.1147883421198471,
+      "files_analyzed": 533,
+      "function_lines": 78139,
+      "function_lines_ratio": 0.37011827452763607,
+      "mean_lines_per_function": 16.02851282051282,
+      "num_classes": 1327,
+      "num_functions": 4875,
       "pypi_version": "0.1.21",
-      "total_lines": 204736
+      "total_lines": 211119
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T20:11:56.664251Z",
+  "timestamp": "2026-11-10T20:11:59.379080Z",
   "workflow_status": {}
 }

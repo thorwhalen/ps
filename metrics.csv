@@ -1,28 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T20:11:56.664251Z
-commit_sha,626a06c488f6686a6173858605a212ac2c8db838
-commit_message,"wait_and_reap: kill what a process started however it ends; start_time
-
-kill_process_tree reads the tree below a live process, so a process that exits on
-its own (a crash, or between a timeout and the kill) leaves its re-parented
-workers running. wait_and_reap watches the tree while waiting and, after any
-exit, kills the descendants it saw that are still the same processes (start
-time), plus orphans in the process's own group. First customer: arioso compare
-(thorwhalen/arioso#67)."
+timestamp,2026-11-10T20:11:59.379080Z
+commit_sha,63104ffc954bfd1341d53972129d61035d13670c
+commit_message,Merge 626a06c488f6686a6173858605a212ac2c8db838 into 4fcd0f8a95c0bac610f6af12f37c9b2d8ed8092c
 python_version,3.10
-metrics.umpyre_stats.num_functions,4572
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204736
-metrics.umpyre_stats.empty_lines,23185
-metrics.umpyre_stats.comment_lines,10870
-metrics.umpyre_stats.docs_lines,15450
-metrics.umpyre_stats.function_lines,73669
-metrics.umpyre_stats.empty_lines_ratio,0.11324339637386684
-metrics.umpyre_stats.comment_lines_ratio,0.05309276336355111
-metrics.umpyre_stats.function_lines_ratio,0.3598243591747421
-metrics.umpyre_stats.mean_lines_per_function,16.113079615048118
-metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.num_functions,4875
+metrics.umpyre_stats.num_classes,1327
+metrics.umpyre_stats.total_lines,211119
+metrics.umpyre_stats.empty_lines,24234
+metrics.umpyre_stats.comment_lines,11303
+metrics.umpyre_stats.docs_lines,16375
+metrics.umpyre_stats.function_lines,78139
+metrics.umpyre_stats.empty_lines_ratio,0.1147883421198471
+metrics.umpyre_stats.comment_lines_ratio,0.05353852566561986
+metrics.umpyre_stats.function_lines_ratio,0.37011827452763607
+metrics.umpyre_stats.mean_lines_per_function,16.02851282051282
+metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.21
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-10T15:12:03Z
@@ -43,4 +36,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.567593812942505
+collection_duration_seconds,2.865612268447876
