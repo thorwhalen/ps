@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 2.343108654022217,
-  "commit_message": "env cli: ValueError for unknown names, status catches only a failing spec, build= may ignore its folder",
-  "commit_sha": "7194a6d5b77a53c2ab934eb6efe2e6291f09331b",
+  "collection_duration_seconds": 3.211059808731079,
+  "commit_message": "Merge 7194a6d5b77a53c2ab934eb6efe2e6291f09331b into 25b9e38f04ec0e31c9dfe7be7ed7411291147b5c",
+  "commit_sha": "b576193c7570f7d647b52c98703357b88ab40e73",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -22,7 +22,7 @@
       "mean_lines_per_function": 16.09975882481912,
       "num_classes": 1266,
       "num_functions": 4561,
-      "pypi_version": "0.1.17",
+      "pypi_version": "0.1.18",
       "total_lines": 204511
     },
     "wily": {
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:57:05.372076Z",
+  "timestamp": "2026-11-10T14:57:08.563835Z",
   "workflow_status": {}
 }
