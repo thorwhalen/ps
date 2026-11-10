@@ -436,7 +436,8 @@ class Worker:
 
     Args:
         python: The environment's interpreter.
-        adapter: The adapter file (``load`` plus operations).
+        adapter: The adapter file (``load`` plus operations); a relative path is
+            resolved against the host's working directory.
         init: Keyword arguments of the adapter's ``load`` (sent on start).
         env: Environment variables added to the host's (minus :data:`HOST_ONLY_VARS`).
         cwd: The working directory (default: an empty folder).
@@ -457,7 +458,9 @@ class Worker:
         stderr: Any = _TEMP_LOG,
         spawn: Callable[..., subprocess.Popen] = subprocess.Popen,
     ):
-        self.python, self.adapter = str(python), os.fspath(adapter)
+        # absolute: the process runs in another directory (an empty one by default)
+        self.python = str(python)
+        self.adapter = os.path.abspath(os.fspath(adapter))
         self.name = Path(self.adapter).stem
         self.init = dict(init or {})
         self.env = dict(env or {})
