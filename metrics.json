@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.808725595474243,
+  "collection_duration_seconds": 2.9692509174346924,
   "commit_message": "ps.isolated: workers on a Python whose OpenSSL has no CA bundle get one (ensure_ca_bundle) (#15)",
   "commit_sha": "d1d5df1e167a72043de4886a9dacec6db0a8ffd7",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10861,
-      "comment_lines_ratio": 0.053188311402112644,
-      "docs_lines": 15301,
-      "empty_lines": 23108,
-      "empty_lines_ratio": 0.11316411931498195,
-      "files_analyzed": 522,
-      "function_lines": 73154,
-      "function_lines_ratio": 0.35824857124667603,
-      "mean_lines_per_function": 16.0707381370826,
-      "num_classes": 1266,
-      "num_functions": 4552,
+      "comment_lines": 11294,
+      "comment_lines_ratio": 0.05363231425288011,
+      "docs_lines": 16226,
+      "empty_lines": 24157,
+      "empty_lines_ratio": 0.1147154077746436,
+      "files_analyzed": 533,
+      "function_lines": 77624,
+      "function_lines_ratio": 0.3686165009355026,
+      "mean_lines_per_function": 15.988465499485066,
+      "num_classes": 1327,
+      "num_functions": 4855,
       "pypi_version": "0.1.17",
-      "total_lines": 204199
+      "total_lines": 210582
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:44:52.314470Z",
+  "timestamp": "2026-11-10T14:44:57.466823Z",
   "workflow_status": {}
 }
