@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.8970913887023926,
+  "collection_duration_seconds": 3.470505714416504,
   "commit_message": "Merge 61e4437020983f2a15d76057f0554bd26d9cb241 into 25b9e38f04ec0e31c9dfe7be7ed7411291147b5c",
   "commit_sha": "a56c6019c41376f4849c9fd3f13895cf03ed5b02",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10864,
-      "comment_lines_ratio": 0.05316212883399558,
-      "docs_lines": 15331,
-      "empty_lines": 23127,
-      "empty_lines_ratio": 0.11317015404490204,
-      "files_analyzed": 522,
-      "function_lines": 73302,
-      "function_lines_ratio": 0.3586975669909374,
-      "mean_lines_per_function": 16.08205353225099,
-      "num_classes": 1266,
-      "num_functions": 4558,
+      "comment_lines": 11297,
+      "comment_lines_ratio": 0.053606593938473654,
+      "docs_lines": 16256,
+      "empty_lines": 24176,
+      "empty_lines_ratio": 0.11472010401491893,
+      "files_analyzed": 533,
+      "function_lines": 77772,
+      "function_lines_ratio": 0.36904417312410137,
+      "mean_lines_per_function": 15.99917712404855,
+      "num_classes": 1327,
+      "num_functions": 4861,
       "pypi_version": "0.1.18",
-      "total_lines": 204356
+      "total_lines": 210739
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -34,14 +34,14 @@
     },
     "workflow_status": {
       "last_run_status": "success",
-      "last_success_timestamp": "2026-11-10T14:57:19Z",
+      "last_success_timestamp": "2026-11-10T14:58:34Z",
       "recent_failure_count": 2,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42839098035",
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42839340518",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T14:58:36.564419Z",
+  "timestamp": "2026-11-10T14:58:38.438867Z",
   "workflow_status": {}
 }
