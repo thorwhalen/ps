@@ -19,7 +19,8 @@ Two ways to get the environment, and one way to talk to it:
   the spec changes (a marker records the spec's digest).
 - :func:`compile_lock` pins an environment's requirements into a lock file
   (:func:`lock_requirements` reads it back), and :func:`cli` is a ready
-  ``build`` / ``status`` / ``lock`` command line over a host's named environments.
+  ``build`` / ``status`` / ``lock`` command line over a host's named environments
+  (:func:`add_env_commands` + :func:`run_env_command` mount it in a host's own).
 - :class:`Worker` keeps one process of an environment alive, running an **adapter
   file**, and talks to it in JSON lines, so a model loads once instead of once per
   call. :func:`run_process` is the one-shot alternative: run a command, get
@@ -723,18 +724,29 @@ SpecSource = Union[EnvSpec, Callable[[], EnvSpec]]
 def lock_requirements(text: str) -> Tuple[str, ...]:
     """The requirement lines of a lock (``uv pip compile`` output): comments dropped, markers kept.
 
+    Editable and path requirements (``-e ./pkg``) are kept; any other option line
+    (``--index-url`` ...) raises, as :class:`EnvSpec` cannot carry it and dropping it
+    would install from another index.
+
     >>> lock_requirements("# header\\nnumpy==2.1.0\\n    # via x\\ntorch==2.5.0 ; sys_platform == 'darwin'\\n")
     ('numpy==2.1.0', "torch==2.5.0 ; sys_platform == 'darwin'")
     """
     lines = (line.split(" #")[0].strip() for line in text.splitlines())
-    return tuple(line for line in lines if line and not line.startswith(("#", "-")))
+    kept = []
+    for line in lines:
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("-") and not line.startswith(("-e ", "--editable ")):
+            raise ValueError(f"A lock option line ps cannot pass on: {line!r}")
+        kept.append(line)
+    return tuple(kept)
 
 
 def compile_lock(
     requirements: Iterable[str],
     path: PathLike,
     *,
-    python: str = "{}.{}".format(*sys.version_info[:2]),
+    python: str,
     custom_command: Optional[str] = None,
     run: Callable = subprocess.run,
 ) -> Path:
@@ -748,22 +760,99 @@ def compile_lock(
     Args:
         requirements: The top-level requirements (what the environment is for).
         path: The lock file to write.
-        python: The Python version the lock is resolved for.
+        python: The Python version to resolve for: the spec's ``python``.
         custom_command: The command the lock's header says regenerates it.
         run: Runs the command (seam; ``subprocess.run`` signature).
     """
-    command = [_find_uv(), "pip", "compile", "-", "--universal"]
+    command = ["uv", "pip", "compile", "-", "--universal"]
     command += ["--python-version", python, "--output-file", str(path)]
     if custom_command:
         command += ["--custom-compile-command", custom_command]
-    run(
-        command,
-        input="\n".join(requirements) + "\n",
-        text=True,
-        check=True,
-        env={**os.environ, **{var: "" for var in HOST_UV_VARS}},
-    )
+    try:
+        run(
+            command,
+            input="\n".join(requirements) + "\n",
+            text=True,
+            check=True,
+            env={**os.environ, **{var: "" for var in HOST_UV_VARS}},
+        )
+    except FileNotFoundError:
+        raise RuntimeNotInstalled(
+            f"Resolving a lock needs uv: {_UV_INSTALL} (see https://docs.astral.sh/uv/)"
+        ) from None
     return Path(path)
+
+
+class EnvCommandError(ValueError):
+    """A command of :func:`run_env_command` was given unknown names, or none."""
+
+
+def add_env_commands(commands, specs: Mapping[str, SpecSource], *, locks=None) -> None:
+    """Add ``build``, ``status`` (and ``lock``, with ``locks``) to ``commands``, an
+    ``argparse`` subparsers object, for :func:`run_env_command` to run.
+
+    Use it to mount the commands in a host's own command line; :func:`cli` is the
+    standalone form.
+    """
+    names = "{" + ",".join(specs) + "}"
+    build = commands.add_parser("build", help="build environments")
+    build.add_argument("names", nargs="*", metavar=names)
+    build.add_argument("--all", action="store_true", help="build every environment")
+    build.set_defaults(env_command="build")
+    status = commands.add_parser("status", help="where each environment is, and if built")
+    status.set_defaults(env_command="status", names=[])
+    if locks:
+        lock = commands.add_parser("lock", help="re-resolve locks (needs uv)")
+        lock.add_argument("names", nargs="+", metavar="{" + ",".join(locks) + "}")
+        lock.set_defaults(env_command="lock")
+
+
+def run_env_command(
+    args,
+    specs: Mapping[str, SpecSource],
+    *,
+    env_dir: Callable[[str], PathLike],
+    locks: Optional[Mapping[str, Callable[[], Any]]] = None,
+    build: Optional[Callable[[EnvSpec, Path], Any]] = None,
+    marker: str = DFLT_ENV_MARKER,
+    out: Callable[[str], Any] = print,
+) -> int:
+    """Run the command :func:`add_env_commands` parsed (``args.env_command``, ``args.names``).
+
+    Raises:
+        EnvCommandError: An unknown name, or ``build`` with neither names nor ``--all``.
+    """
+    command, names = args.env_command, list(args.names)
+    known = locks if command == "lock" else specs
+    unknown = [n for n in names if n not in (known or {})]
+    if unknown:
+        raise EnvCommandError(f"unknown {unknown}; choose from {list(known or {})}")
+
+    def spec(name: str) -> EnvSpec:
+        source = specs[name]
+        return source if isinstance(source, EnvSpec) else source()
+
+    def folder(name: str) -> Path:
+        return Path(env_dir(name)).expanduser()
+
+    if command == "build":
+        if not names and not getattr(args, "all", False):
+            raise EnvCommandError("name the environments to build, or pass --all")
+        build = build or (lambda s, path: ensure_env(s, path, marker=marker))
+        for name in names or list(specs):
+            out(f"{name}\t{build(spec(name), folder(name))}")
+    elif command == "lock":
+        for name in names:
+            out(str(locks[name]()))
+    else:
+        for name in specs:
+            try:
+                ready = is_env_ready(spec(name), folder(name), marker=marker)
+            except Exception as error:  # noqa: BLE001 - one broken spec must not hide the rest
+                out(f"{name}: no spec ({type(error).__name__}: {error})")
+                continue
+            out(f"{name}: {'built' if ready else 'not built'} ({folder(name)})")
+    return 0
 
 
 def cli(
@@ -777,11 +866,12 @@ def cli(
     argv: Optional[Iterable[str]] = None,
     out: Callable[[str], Any] = print,
 ) -> int:
-    """A command line over named environments: ``build [name ...]``, ``status``, ``lock name ...``.
+    """A command line over named environments: ``build name ... | --all``, ``status``, ``lock name ...``.
 
-    - ``build`` builds the named environments (all, by default) and prints
+    - ``build`` builds the named environments (``--all``: every one) and prints
       ``name<TAB>python`` for each.
-    - ``status`` prints ``name: built (folder)`` or ``name: not built (folder)``.
+    - ``status`` prints ``name: built (folder)``, ``name: not built (folder)``, or
+      ``name: no spec (error)`` when making its spec fails (a missing lock, say).
     - ``lock`` (only when ``locks`` is given) calls each named lock function (a
       :func:`compile_lock` with its arguments bound, typically) and prints what it
       returns.
@@ -791,10 +881,15 @@ def cli(
         if __name__ == "__main__":
             sys.exit(isolated.cli(SPECS, env_dir=env_dir, prog="python -m mypkg.isolated"))
 
+    or mounts the commands in its own parser (:func:`add_env_commands`,
+    :func:`run_env_command`).
+
     Args:
         specs: name -> :class:`EnvSpec`, or a function making it (called when needed).
-        env_dir: name -> the environment's folder.
-        locks: name -> a function resolving that environment's lock.
+        env_dir: name -> the environment's folder; it must be where ``build`` builds
+            it, as ``status`` reads the marker there.
+        locks: name -> a function resolving that environment's lock (names must be
+            among ``specs``).
         build: ``(spec, folder) -> python``; default :func:`ensure_env` with ``marker``.
         marker: The marker file of the host's environments.
         prog: The program name shown in help.
@@ -802,46 +897,26 @@ def cli(
         out: Receives each output line.
 
     >>> specs = {"a": EnvSpec("a", ()), "b": lambda: EnvSpec("b", ())}
-    >>> cli(specs, env_dir=lambda name: "/nowhere/" + name, argv=["status"])
-    a: not built (/nowhere/a)
-    b: not built (/nowhere/b)
+    >>> cli(specs, env_dir=lambda name: "nowhere/" + name, argv=["status"],
+    ...     out=lambda line: print(line.replace(os.sep, "/")))
+    a: not built (nowhere/a)
+    b: not built (nowhere/b)
     0
     """
     import argparse
 
-    def spec(name: str) -> EnvSpec:
-        source = specs[name]
-        return source if isinstance(source, EnvSpec) else source()
-
-    def check(names, known, what):
-        unknown = [n for n in names if n not in known]
-        if unknown:
-            parser.error(f"unknown {what} {unknown}; choose from {sorted(known)}")
-        return names
-
-    build = build or (lambda s, path: ensure_env(s, path, marker=marker))
+    stray = set(locks or {}) - set(specs)
+    if stray:
+        raise ValueError(f"locks for environments not in specs: {sorted(stray)}")
     parser = argparse.ArgumentParser(prog=prog, description="Isolated environments.")
-    commands = parser.add_subparsers(dest="command", required=True)
-    build_cmd = commands.add_parser("build", help="build environments (default: all)")
-    build_cmd.add_argument("names", nargs="*", metavar="name", help=", ".join(specs))
-    commands.add_parser("status", help="where each environment is, and if it is built")
-    if locks:
-        lock_cmd = commands.add_parser("lock", help="re-resolve locks (needs uv)")
-        lock_cmd.add_argument("names", nargs="+", metavar="name", help=", ".join(locks))
+    add_env_commands(parser.add_subparsers(dest="command", required=True), specs, locks=locks)
     args = parser.parse_args(None if argv is None else list(argv))
-
-    if args.command == "build":
-        for name in check(args.names, specs, "environment") or list(specs):
-            out(f"{name}\t{build(spec(name), Path(env_dir(name)).expanduser())}")
-    elif args.command == "lock":
-        for name in check(args.names, locks, "lock"):
-            out(str(locks[name]()))
-    else:
-        for name in specs:
-            path = Path(env_dir(name)).expanduser()
-            state = "built" if is_env_ready(spec(name), path, marker=marker) else "not built"
-            out(f"{name}: {state} ({path})")
-    return 0
+    try:
+        return run_env_command(
+            args, specs, env_dir=env_dir, locks=locks, build=build, marker=marker, out=out
+        )
+    except EnvCommandError as error:
+        parser.error(str(error))
 
 
 # --------------------------------------------------------------------------------------
