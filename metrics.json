@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 3.098099946975708,
-  "commit_message": "Merge 626a06c488f6686a6173858605a212ac2c8db838 into 4fcd0f8a95c0bac610f6af12f37c9b2d8ed8092c",
-  "commit_sha": "63104ffc954bfd1341d53972129d61035d13670c",
+  "collection_duration_seconds": 3.567593812942505,
+  "commit_message": "wait_and_reap: kill what a process started however it ends; start_time\n\nkill_process_tree reads the tree below a live process, so a process that exits on\nits own (a crash, or between a timeout and the kill) leaves its re-parented\nworkers running. wait_and_reap watches the tree while waiting and, after any\nexit, kills the descendants it saw that are still the same processes (start\ntime), plus orphans in the process's own group. First customer: arioso compare\n(thorwhalen/arioso#67).",
+  "commit_sha": "626a06c488f6686a6173858605a212ac2c8db838",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T20:11:55.043597Z",
+  "timestamp": "2026-11-10T20:11:56.664251Z",
   "workflow_status": {}
 }
