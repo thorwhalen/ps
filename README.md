@@ -257,6 +257,14 @@ with Worker(python, "my_adapter.py", init={"size": "small"}) as w:
 
 A worker stays alive between calls, keeps library output away from its JSON-lines protocol, writes its stderr to a log whose tail goes into errors (or to your terminal with `stderr=None`), and is killed and restarted after an interrupted exchange. `Runtime` locates an environment installed by hand and raises `RuntimeNotInstalled` with its install commands; `run_process` is the one-shot alternative. See the module docstring for the full API.
 
+Code that is a git checkout rather than a package is pinned to one commit with `GitSource` (a full 40-character SHA): `ensure_git_source(source, path)` fetches only that commit, once, and checks it on every reuse (same commit, no edits to tracked files); `Runtime(..., source=source)` puts the pinned fetch in its install commands and refuses a root at another commit.
+
+```python
+from ps.isolated import GitSource, ensure_git_source
+
+repo = ensure_git_source(GitSource("https://github.com/org/model", "<40-hex sha>"), "~/models/model")
+```
+
 # Misc tools 
 
 ## ps.misc.run_commands_in_dir

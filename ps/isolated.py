@@ -9,7 +9,11 @@ Two ways to get the environment, and one way to talk to it:
 - :class:`Runtime` *locates* an environment someone installed by hand (a checkout with
   its own venv): ``$<env_var>``, else ``$<base_dir_var>/<name>``, else
   ``<default_dir>/<name>``. ps never installs it; a missing one raises
-  :class:`RuntimeNotInstalled` carrying the setup commands.
+  :class:`RuntimeNotInstalled` carrying the setup commands. Given a ``source=``
+  (a :class:`GitSource`: a repository at one full commit SHA), its install commands
+  check that commit out and it refuses a root at another commit or with edits.
+- :func:`ensure_git_source` fetches a :class:`GitSource` into a folder once (locked,
+  atomic, verified on every reuse), for code that is a checkout rather than a package.
 - :class:`EnvSpec` describes an environment ps *builds* with ``uv`` from a list of
   requirements: :func:`ensure_env` builds it once, and rebuilds it from scratch when
   the spec changes (a marker records the spec's digest).
@@ -78,6 +82,9 @@ voxy (``voxy.envs``, ``voxy.worker``, ``voxy/workers/serve.py``):
   stay voxy's.
 - ``Worker(python, adapter, init=, env=, log_path=, cwd=)`` -> :class:`Worker`
   (``log_path=`` is ``stderr=``); ``.call(op, **kw)``, ``.running``, ``.close()`` same.
+- ``GitSource``, ``ensure_git_source(source, name, rootdir=)`` (voxy#123) ->
+  :class:`GitSource`, :func:`ensure_git_source` with ``path=git_source_dir(...)``;
+  its ``_dir_lock`` -> a private ``_dir_lock``.
 - ``WorkerError``, ``LOG_TAIL_CHARS`` -> same names; ``workers/serve.py`` ->
   :func:`serve_adapter` (its torch thread cap moves into the adapters' ``load``).
 
@@ -93,14 +100,17 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import traceback
 import weakref
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Optional, Tuple, Union
@@ -168,6 +178,252 @@ def clean_environ(base: Optional[Mapping[str, str]] = None) -> dict:
     return env
 
 
+# --------------------------------------------------------------------------------------
+# Pinned sources: code that is a git checkout at one commit
+
+
+#: A full commit SHA (SHA-1 or SHA-256): anything shorter, a branch or a tag does not pin.
+_FULL_SHA = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+#: Seconds :func:`ensure_git_source` waits for another process fetching the same source.
+DFLT_SOURCE_LOCK_TIMEOUT_S = 900
+_LOCK_POLL_S = 0.5
+#: The variables that point git at another repository (``git rev-parse
+#: --local-env-vars``): a caller's (a git hook's, say) must not reach our commands.
+#: Credentials and transport settings (``GIT_SSH_COMMAND``, ``GIT_ASKPASS``) are kept.
+GIT_LOCATION_VARS = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY", "GIT_DIR", "GIT_WORK_TREE",
+    "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_INDEX_FILE",
+    "GIT_NO_REPLACE_OBJECTS", "GIT_REPLACE_REF_BASE", "GIT_PREFIX",
+    "GIT_SHALLOW_FILE", "GIT_COMMON_DIR",
+)
+#: What a server says when it will not send one commit by its SHA.
+_SHA_REFUSED = ("not our ref", "unadvertised object", "does not allow request")
+#: Never wait on a credential prompt (a terminal one, or Git Credential Manager's window).
+_GIT_NO_PROMPT = {"GIT_TERMINAL_PROMPT": "0", "GCM_INTERACTIVE": "never"}
+
+
+class SourceMismatch(RuntimeNotInstalled):
+    """A checkout is not the pinned commit, has edits to its tracked files, or cannot be read."""
+
+
+@dataclass(frozen=True)
+class GitSource:
+    """A repository at one commit: code a host runs that is a checkout, not a package.
+
+    Args:
+        url: The repository (anything ``git fetch`` takes).
+        commit: The full commit SHA, lowercase as git prints it (a branch, a tag or a
+            short SHA would not pin it).
+
+    >>> GitSource("https://example.org/r.git", "main")
+    Traceback (most recent call last):
+      ...
+    ValueError: GitSource needs a full commit SHA (40 or 64 lowercase hex characters), not 'main'
+    """
+
+    url: str
+    commit: str
+
+    def __post_init__(self):
+        if not _FULL_SHA.fullmatch(self.commit):
+            raise ValueError(
+                "GitSource needs a full commit SHA (40 or 64 lowercase hex characters), "
+                f"not {self.commit!r}"
+            )
+
+    def fetch_commands(self, path: PathLike) -> Tuple[Tuple[str, ...], ...]:
+        """The git commands that check this commit out (only it, no history) into ``path``.
+
+        >>> src = GitSource("https://example.org/r.git", "0" * 40)
+        >>> [c[:4] for c in src.fetch_commands("/x")]
+        [('git', 'init', '--quiet', '/x'), ('git', '-C', '/x', 'fetch'), ('git', '-C', '/x', 'checkout')]
+        """
+        path = str(path)
+        return (
+            ("git", "init", "--quiet", path),
+            ("git", "-C", path, "fetch", "--quiet", "--depth", "1", self.url, self.commit),
+            ("git", "-C", path, "checkout", "--quiet", "--detach", self.commit),
+        )
+
+
+def _git_environ() -> dict:
+    env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION_VARS}
+    if "GIT_SSH_COMMAND" not in env and "GIT_SSH" not in env:
+        env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes"  # no host-key or passphrase prompt
+    return {**env, **_GIT_NO_PROMPT}
+
+
+def _git(run: Callable, *args: str) -> str:
+    """``git args...`` (see :func:`_git_environ`); its stdout, stripped."""
+    try:
+        done = run(
+            ["git", *args], check=True, capture_output=True, text=True, env=_git_environ()
+        )
+    except FileNotFoundError:
+        raise RuntimeNotInstalled("This needs git: https://git-scm.com") from None
+    except subprocess.CalledProcessError as error:
+        detail = (error.stderr or error.stdout or "").strip()
+        raise RuntimeError(f"git {' '.join(args)} failed: {detail}") from error
+    return (done.stdout or "").strip()
+
+
+def _commands_text(commands) -> str:
+    return "\n".join(_shown(c, clear_uv=False) for c in commands)
+
+
+def check_git_source(
+    source: GitSource, path: PathLike, *, run: Callable = subprocess.run
+) -> Path:
+    """``path`` (``~`` expanded), checked to be ``source``'s commit with no edits to tracked files.
+
+    Untracked files (a virtualenv, downloaded weights) are allowed. The check takes no
+    lock in the checkout (``git --no-optional-locks``).
+
+    Raises:
+        SourceMismatch: ``path`` is not a checkout, is at another commit, has edits,
+            or git cannot read it; the message says what to do.
+    """
+    path = Path(path).expanduser()
+    if not (path / ".git").exists():
+        if path.is_dir() and any(path.iterdir()):
+            raise SourceMismatch(
+                f"{path} is not a git checkout of {source.url}: delete or move it "
+                "(it is not empty), then check the source out there"
+            )
+        raise SourceMismatch(
+            f"{path} is not a git checkout of {source.url}; check it out with:\n\n"
+            + _commands_text(source.fetch_commands(path))
+        )
+    try:
+        head = _git(run, "-C", str(path), "rev-parse", "HEAD")
+        if head != source.commit:
+            raise SourceMismatch(
+                f"{path} is at {head[:12] or 'no commit'}, not the pinned "
+                f"{source.commit[:12]} of {source.url}. Move it there with:\n\n"
+                + _commands_text(source.fetch_commands(path)[1:])
+            )
+        status = ("--no-optional-locks", "-C", str(path), "status", "--porcelain")
+        edits = _git(run, *status, "--untracked-files=no")
+    except SourceMismatch:
+        raise
+    except RuntimeError as error:  # git could not read it (ownership, corruption)
+        raise SourceMismatch(f"{path}: {error}") from error
+    if edits:
+        raise SourceMismatch(
+            f"{path} has edits to tracked files ({edits.splitlines()[0].strip()}, ...): "
+            f"commit or discard them, or delete the folder to fetch "
+            f"{source.commit[:12]} again"
+        )
+    return path
+
+
+def _rmtree(path: Path) -> None:
+    """Remove ``path`` if it exists, read-only files included (git's objects, on Windows)."""
+    import stat
+
+    def clear_and_retry(func, name, exc):
+        error = exc[1] if isinstance(exc, tuple) else exc  # onerror passes exc_info
+        if not isinstance(error, PermissionError) or func not in (os.unlink, os.rmdir):
+            raise error
+        os.chmod(name, os.stat(name).st_mode | stat.S_IWRITE)
+        func(name)
+
+    if path.exists():
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=clear_and_retry)
+        else:
+            shutil.rmtree(path, onerror=clear_and_retry)
+
+
+@contextmanager
+def _dir_lock(path: Path, *, timeout_s: float):
+    """Hold the lock ``path`` (a folder, made atomically) for the block, waiting up to ``timeout_s``."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            path.mkdir()
+            break
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                raise TimeoutError(
+                    f"{path} has been held for over {timeout_s:.0f} s; if no process "
+                    "is fetching, delete it"
+                ) from None
+            time.sleep(_LOCK_POLL_S)
+    try:
+        yield
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def ensure_git_source(
+    source: GitSource,
+    path: PathLike,
+    *,
+    run: Callable = subprocess.run,
+    log: Optional[Callable[[str], Any]] = None,
+    lock_timeout_s: float = DFLT_SOURCE_LOCK_TIMEOUT_S,
+) -> Path:
+    """Check ``source`` out into ``path`` once (that commit only, no history); return ``path``, checked.
+
+    The fetch holds a lock (``<path>.lock``: another process fetching the same source
+    waits), goes into ``<path>.partial`` (an interrupted one starts afresh), and is
+    renamed into place once verified. A server that refuses to send one commit by
+    its SHA gets a blobless fetch of its branches and tags instead. A checkout
+    already at ``path`` is verified (:func:`check_git_source`), never replaced.
+
+    Args:
+        source: The repository and commit.
+        path: The checkout's folder (``~`` expanded; its parent is created).
+        run: Runs each git command (seam; ``subprocess.run`` signature).
+        log: Receives a notice before a fetch (default: stderr).
+        lock_timeout_s: How long to wait for another process's fetch.
+    """
+    path = Path(path).expanduser()
+    log = log or _log_to_stderr
+    if not path.is_dir():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with _dir_lock(path.with_name(path.name + ".lock"), timeout_s=lock_timeout_s):
+            if not path.is_dir():  # not fetched by the process we waited for
+                _fetch_git_source(source, path, run=run, log=log)
+    return check_git_source(source, path, run=run)
+
+
+def _fetch_git_source(source: GitSource, path: Path, *, run, log) -> None:
+    partial = path.with_name(path.name + ".partial")
+    _rmtree(partial)
+    log(f"Fetching {source.url} at {source.commit[:12]} into {path} (one-time)")
+    init, fetch, checkout = source.fetch_commands(partial)
+    _git(run, *init[1:])
+    # no background gc or maintenance holding files in .partial (it is renamed next)
+    _git(run, "-C", str(partial), "config", "gc.auto", "0")
+    _git(run, "-C", str(partial), "config", "maintenance.auto", "false")
+    try:
+        _git(run, *fetch[1:])
+    except RuntimeError as error:
+        if not any(sign in str(error) for sign in _SHA_REFUSED):
+            raise  # a wrong URL, no access: the first error is the one to see
+        refs = ("+refs/heads/*:refs/remotes/origin/*", "+refs/tags/*:refs/tags/*")
+        _git(run, "-C", str(partial), "fetch", "--quiet", "--filter=blob:none",
+             source.url, *refs)
+        try:
+            _git(run, "-C", str(partial), "cat-file", "-e", source.commit + "^{commit}")
+        except RuntimeError:
+            raise RuntimeError(
+                f"{source.commit[:12]} is not on any branch or tag of {source.url} "
+                "(and the server will not send it by its SHA)"
+            ) from None
+    _git(run, *checkout[1:])
+    check_git_source(source, partial, run=run)
+    try:
+        partial.rename(path)
+    except OSError:
+        if not path.is_dir():
+            raise
+        _rmtree(partial)  # another process's copy won
+
+
 @dataclass(frozen=True)
 class Runtime:
     """Where a hand-installed environment (a checkout with its venv) lives, and how to install it.
@@ -184,6 +440,11 @@ class Runtime:
         venv: The virtual environment, relative to the root (either OS layout).
         python: The interpreter relative to the root, overriding ``venv``.
         cwd: The processes' working directory, relative to the root.
+        source: The :class:`GitSource` the root is a checkout of (optional). Then
+            :meth:`hint` starts with the commands that check that commit out, and
+            :meth:`interpreter` refuses a root at another commit or with edits
+            (:class:`SourceMismatch`; a warning for a root named by ``env_var``), so
+            two machines run the same code.
 
     >>> rt = Runtime(name="toy", setup="install {root}", default_dir="/rt")
     >>> rt.root().as_posix(), rt.installed()
@@ -198,6 +459,7 @@ class Runtime:
     venv: str = ".venv"
     python: Optional[str] = None
     cwd: str = "."
+    source: Optional[GitSource] = None
 
     def root(self) -> Path:
         """The runtime's root directory (it may not exist yet)."""
@@ -213,14 +475,44 @@ class Runtime:
         return root / self.python if self.python else venv_python(root / self.venv)
 
     def installed(self) -> bool:
-        """Whether the runtime's interpreter exists."""
+        """Whether the runtime's interpreter exists (a file check: the :attr:`source` is not read)."""
         return self._python().exists()
 
     def interpreter(self) -> Path:
-        """The runtime's Python, or :class:`RuntimeNotInstalled` with the setup commands."""
+        """The runtime's Python, or :class:`RuntimeNotInstalled` with the setup commands.
+
+        With a :attr:`source`, the root is checked first (:func:`check_git_source`:
+        two local git calls, some 20 ms, on every call; not cached, since a cache
+        keyed on file times misses ``git reset`` and later edits). A
+        root the runtime chose (under the base or default directory) that fails it
+        raises :class:`SourceMismatch`, saying how to move it to the pinned commit;
+        a root named by :attr:`env_var` is the user's own installation, so the
+        mismatch is a warning and the root is used.
+        """
         if not self.installed():
             raise RuntimeNotInstalled(self.hint())
+        if self.source is not None:
+            self._check_source()
         return self._python()
+
+    def _check_source(self) -> None:
+        root = self.root()
+        try:
+            check_git_source(self.source, root)
+        except SourceMismatch as error:
+            message = f"{error}\nThen re-run the install step:\n\n" + self.setup.format(
+                root=root, python=self._python()
+            )
+            if self.env_var and os.environ.get(self.env_var):
+                import warnings
+
+                warnings.warn(
+                    f"${self.env_var} names a runtime that is not the pinned one; "
+                    f"using it anyway. {message}",
+                    stacklevel=3,
+                )
+                return
+            raise SourceMismatch(message) from None
 
     def workdir(self) -> Path:
         """The directory the runtime's processes run in."""
@@ -229,9 +521,13 @@ class Runtime:
     def hint(self) -> str:
         """How to install this runtime, or point to an existing one."""
         root, python = self.root(), self._python()
+        fetch = ""
+        if self.source is not None:
+            commands = self.source.fetch_commands(root)
+            fetch = "\n".join(_shown(c, clear_uv=False) for c in commands) + "\n"
         text = (
             f"The {self.name!r} runtime is not installed at {root} (no {python}). "
-            "Install it with:\n\n" + self.setup.format(root=root, python=python)
+            "Install it with:\n\n" + fetch + self.setup.format(root=root, python=python)
         )
         if self.env_var:
             text += f"\n\nor set ${self.env_var} to an existing installation."
@@ -287,13 +583,14 @@ def _env_commands(spec: EnvSpec, path: Path, uv: str) -> list:
     return commands
 
 
-def _shown(command) -> str:
-    """``command`` as a user would type it, with the host's uv pins cleared."""
+def _shown(command, *, clear_uv: bool = True) -> str:
+    """``command`` as a user would type it (with the host's uv pins cleared, by default)."""
     argv = [str(a) for a in command]
     if os.name == "nt":
-        clear = "".join(f'set "{var}=" & ' for var in HOST_UV_VARS)
+        clear = "".join(f'set "{var}=" & ' for var in HOST_UV_VARS) if clear_uv else ""
         return clear + subprocess.list2cmdline(argv)
-    return "".join(f"{var}= " for var in HOST_UV_VARS) + shlex.join(argv)
+    clear = "".join(f"{var}= " for var in HOST_UV_VARS) if clear_uv else ""
+    return clear + shlex.join(argv)
 
 
 def _find_uv() -> str:
