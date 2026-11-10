@@ -212,6 +212,34 @@ def test_the_local_dict_follows_the_platform(monkeypatch):
     from ps import util
 
     monkeypatch.setattr(util, "local_commands", lambda verbose=False: ["a.exe", "b"])
-    assert util.local_identifier_command_dict(windows=False) == {"a_exe": "a.exe", "b": "b"}
+    assert util.local_identifier_command_dict(windows=False) == {
+        "a_exe": "a.exe",
+        "b": "b",
+    }
     monkeypatch.setenv("PATHEXT", ".EXE")
     assert util.local_identifier_command_dict(windows=True) == {"a": "a.exe", "b": "b"}
+
+
+def test_commands_are_found_on_first_use_not_on_import():
+    """``import ps`` (or a submodule) scans no PATH; ``ps.<cmd>`` still works."""
+    bindir = os.path.dirname(sys.executable)
+    code = (
+        "import ps.isolated, ps\n"
+        "assert ps._COMMANDS is None, 'import scanned PATH'\n"
+        "from ps import isolated, util\n"
+        "assert ps._COMMANDS is None, 'a submodule import scanned PATH'\n"
+        "from ps import python\n"
+        "assert ps._COMMANDS is not None and ps.python is python\n"
+        "assert 'python' in dir(ps) and 'Commands' in dir(ps)\n"
+        "try:\n"
+        "    ps.no_such_command_xyz\n"
+        "except AttributeError:\n"
+        "    print('ok')\n"
+    )
+    out = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "PATH": bindir},
+        capture_output=True,
+        text=True,
+    )
+    assert out.returncode == 0 and out.stdout.strip() == "ok", out.stderr

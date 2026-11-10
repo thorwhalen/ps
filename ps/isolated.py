@@ -2,34 +2,28 @@
 
 Some libraries cannot share an environment with yours (or with each other): a model
 pins its own torch, numpy or MLX, an evaluation toolkit wants ``numpy<2``. This module
-lets a host process drive such code anyway, with the standard library only:
+lets a host process drive such code anyway, with the standard library only.
 
-- :class:`Runtime` says where a hand-installed environment lives
-  (``$<env_var>``, else ``$<base_dir_var>/<name>``, else ``<default_dir>/<name>``) and how
-  to install it; a missing one raises :class:`RuntimeNotInstalled` carrying the commands.
-- :class:`EnvSpec` and :func:`ensure_env` build an environment with ``uv`` from a list
-  of requirements, once: a marker holding the spec's digest makes a changed spec rebuild.
-- :class:`Worker` keeps one process of that environment alive and talks to it in JSON
-  lines, so a model loads once instead of once per call. Its stderr goes to a log file
-  whose tail is put into the error when the process dies. :class:`WorkerPool` shares
-  workers between threads, one per key.
-- :func:`serve` (and :func:`serve_adapter`) is the loop on the other side.
-- :func:`run_process` is the one-shot alternative: run a command, get
+Two ways to get the environment, and one way to talk to it:
+
+- :class:`Runtime` *locates* an environment someone installed by hand (a checkout with
+  its own venv): ``$<env_var>``, else ``$<base_dir_var>/<name>``, else
+  ``<default_dir>/<name>``. ps never installs it; a missing one raises
+  :class:`RuntimeNotInstalled` carrying the setup commands.
+- :class:`EnvSpec` describes an environment ps *builds* with ``uv`` from a list of
+  requirements: :func:`ensure_env` builds it once, and rebuilds it from scratch when
+  the spec changes (a marker records the spec's digest).
+- :class:`Worker` keeps one process of an environment alive, running an **adapter
+  file**, and talks to it in JSON lines, so a model loads once instead of once per
+  call. :func:`run_process` is the one-shot alternative: run a command, get
   ``(returncode, output)``.
 
-Two driver styles
------------------
-
-A **module driver** is a module the environment can import, run as
-``python -m <module>``; it calls ``serve(handle)``, ``handle(request) -> result``.
-Pass ``expose=("mypackage", "ps")`` so the worker can import those packages (and only
-those: a directory linking just them is put on its ``PYTHONPATH``).
-
-An **adapter file** is a plain ``.py`` file that imports nothing from the host; it
-defines ``load(**init) -> state`` and operations ``op(state, **request) -> dict``. The
-worker loads this very module file standalone in the environment (``ps`` need not be
-installed there), sends ``{"op": "load", **init}`` on start, and ``call("op", **kw)``
-runs ``op(state, **kw)``. This side of the module loads on Python 3.8+.
+An adapter file is a plain ``.py`` file that imports nothing from the host: it defines
+``load(**init) -> state`` and operations ``op(state, **request) -> result``. The worker
+loads this module file standalone in the environment (``ps`` need not be installed
+there; this side loads on Python 3.8+), with the adapter's own folder on ``sys.path``
+(so adapters can share a helper module), sends ``{"op": "load", **init}``, and
+``call("op", **kw)`` returns ``op(state, **kw)`` (``None`` becomes ``{}``).
 
 >>> import sys, tempfile, pathlib
 >>> adapter = pathlib.Path(tempfile.mkdtemp()) / "echo_adapter.py"
@@ -41,29 +35,34 @@ runs ``op(state, **kw)``. This side of the module loads on Python 3.8+.
 ...     w.call("echo", b=2)
 {'a': 1, 'b': 2}
 
-Protocol: one JSON request per line on the worker's stdin, one reply per line on its
-stdout, ``{"ok": true, "result": ...}`` or ``{"ok": false, "error": "Type: message",
-"traceback": "..."}``. Anything the libraries print (Python or C level, to file
-descriptor 1) is sent to stderr, so it cannot corrupt the replies. A failed request
-leaves the worker serving; an interrupted or garbled exchange kills it (a stale reply
-must never be read by the next call), and the next call starts a fresh one.
+How a worker behaves:
+
+- Protocol: one JSON request per line on its stdin, one reply per line on its stdout,
+  ``{"ok": true, "result": ...}`` or ``{"ok": false, "error": "Type: message",
+  "traceback": "..."}``. Everything else written to stdout (Python or C level, at
+  import time too) goes to stderr, so it cannot corrupt the replies.
+- stderr goes to a log file (a temporary one by default, deleted on close) whose tail
+  is put into the error when the process dies; ``stderr=None`` leaves it on the
+  host's terminal instead.
+- The environment is the host's (``PATH`` included) minus ``PYTHONPATH``,
+  ``PYTHONHOME`` and ``VIRTUAL_ENV``, plus ``env=``. The default working directory is
+  an empty folder, so nothing shadows the environment's imports.
+- A failed request leaves the worker serving; a failed ``load`` stops it; an
+  interrupted or garbled exchange kills it (a stale reply must never be read by the
+  next call), and the next call starts a fresh one. :meth:`Worker.close` waits for a
+  call in flight; :meth:`Worker.kill` does not, and is what runs at interpreter exit.
 
 What the copies this module merges map to
 -----------------------------------------
 
 arioso (``arioso._isolated``):
 
-- ``Runtime(name=, env_var=, setup=, python=, cwd=)`` -> :class:`Runtime`, with
-  ``base_dir_var="ARIOSO_RUNTIMES_DIR"`` and ``default_dir=DFLT_RUNTIMES_DIR`` supplied
-  by arioso; ``.root() .installed() .interpreter() .workdir() .hint()`` unchanged.
-- ``RuntimeNotInstalled``, ``WorkerError``, ``Runner``, ``run_process`` -> same names.
-- ``Worker(python, module, env=, cwd=, spawn=)``, ``.call(dict)``, ``.alive``,
-  ``.close()`` -> :class:`Worker`, same signature; arioso adds
-  ``expose=("arioso", "ps")`` in place of ``_arioso_only_dir``. Differences: stderr goes
-  to ``log_path`` (its tail is in errors) instead of the host's stderr, and an omitted
-  ``cwd`` is a neutral empty folder instead of the host's.
-- ``serve(handle, stdin=)`` -> :func:`serve`, unchanged: the existing ``_driver``
-  modules keep working.
+- ``Runtime(name=, env_var=, setup=, python=, cwd=)`` -> :class:`Runtime`, arioso
+  supplying ``base_dir_var="ARIOSO_RUNTIMES_DIR"`` and its ``default_dir``.
+- ``RuntimeNotInstalled``, ``WorkerError``, ``Runner``, ``run_process`` -> same names
+  (``run_process`` now kills the process tree on timeout).
+- ``Worker(python, module)`` + ``serve(handle)`` drivers -> :class:`Worker` with adapter
+  files: each ``_driver`` module becomes an adapter file (``load`` + an operation).
 - ``draw_seed``, ``read_wav``, ``is_apple_silicon``, ``song_from_wav``: arioso's own.
 
 voxy (``voxy.envs``, ``voxy.worker``, ``voxy/workers/serve.py``):
@@ -71,26 +70,20 @@ voxy (``voxy.envs``, ``voxy.worker``, ``voxy/workers/serve.py``):
 - ``EnvSpec(name, requirements, python, torch_backend)`` -> :class:`EnvSpec` (same
   digest, so built environments are not rebuilt); voxy subclasses it to keep
   ``env_vars`` and its ``torch_backend="cpu"`` default.
-- ``env_python(spec, rootdir=)`` -> ``venv_python(env_dir(spec, rootdir=rootdir))``.
-- ``is_env_ready`` / ``ensure_env(spec, rootdir=, run=, log=)`` ->
-  :func:`is_env_ready` / :func:`ensure_env` with ``path=env_dir(spec, rootdir=rootdir)``
-  and ``marker=".voxy-env.json"``; ``_uv`` is internal here.
-- ``worker_environ``: its ``PYTHONPATH``/``VIRTUAL_ENV``/``PYTHONHOME`` stripping is
-  :func:`clean_environ` (every worker does it); threads and ``HF_HOME`` stay voxy's, as
-  do ``env_dir``, ``models_dir``, ``num_threads``, ``remove_env``, ``env_worker``.
-- ``Worker(python, adapter, init=, env=, log_path=, cwd=)``, ``.call(op, **kw)``,
-  ``.running`` -> :class:`Worker`, same signature (a ``.py`` path is an adapter file).
-- ``WorkerError``, ``LOG_TAIL_CHARS`` -> same names.
-- ``WorkerPool(spec, adapter, make=)`` -> :class:`WorkerPool` (``make`` and the key are
-  voxy's: a few-line subclass).
-- ``workers/serve.py`` -> :func:`serve_adapter` (run by :class:`Worker`); its torch
-  thread cap is voxy's to keep (in the adapters' ``load``).
+- ``env_python(spec, rootdir=)`` -> ``venv_python(env_dir(spec, rootdir=rootdir))``;
+  ``is_env_ready`` / ``ensure_env`` -> :func:`is_env_ready` / :func:`ensure_env` with
+  ``path=env_dir(...)`` and ``marker=".voxy-env.json"``.
+- ``worker_environ``'s stripping -> :func:`clean_environ` (every worker does it);
+  threads, ``HF_HOME``, ``env_dir``, ``models_dir``, ``env_worker``, ``WorkerPool``
+  stay voxy's.
+- ``Worker(python, adapter, init=, env=, log_path=, cwd=)`` -> :class:`Worker`
+  (``log_path=`` is ``stderr=``); ``.call(op, **kw)``, ``.running``, ``.close()`` same.
+- ``WorkerError``, ``LOG_TAIL_CHARS`` -> same names; ``workers/serve.py`` ->
+  :func:`serve_adapter` (its torch thread cap moves into the adapters' ``load``).
 
-foley (``foley/sources/stable_audio_3/adapter.py``):
-
-- ``_run_process`` -> :func:`run_process` (stdout and stderr together, in order).
-- ``_venv_python`` -> :func:`venv_python`; ``setup_hint``, ``runtime_ready`` ->
-  ``Runtime.hint``, ``Runtime.installed``.
+foley (``foley/sources/stable_audio_3/adapter.py``): ``_run_process`` ->
+:func:`run_process` (stdout and stderr together, in order); ``_venv_python`` ->
+:func:`venv_python`. Its ``setup_hint`` and ``runtime_ready`` stay foley's.
 """
 
 from __future__ import annotations
@@ -110,7 +103,6 @@ import traceback
 import weakref
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from types import ModuleType
 from typing import Any, Callable, Iterable, Mapping, Optional, Tuple, Union
 
 #: How much of a worker's log (or a failed request's traceback) goes into an error.
@@ -121,6 +113,8 @@ DFLT_CLOSE_TIMEOUT = 10
 DFLT_ENV_MARKER = ".ps-env.json"
 #: Variables that point a Python at the host's packages, never passed to another env.
 HOST_ONLY_VARS = ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
+#: uv settings holding the host's pins, cleared when building an environment.
+HOST_UV_VARS = ("UV_CONSTRAINT", "UV_OVERRIDE", "UV_BUILD_CONSTRAINT")
 #: The :class:`EnvSpec` fields that decide what is installed (hence the digest).
 DIGEST_FIELDS = ("name", "requirements", "python", "torch_backend")
 
@@ -143,14 +137,8 @@ class WorkerError(RuntimeError):
     """The worker failed a request (its traceback is in the message) or died (its log tail is)."""
 
 
-def _shell_join(argv) -> str:
-    """``argv`` as one command line for this platform's shell."""
-    argv = [str(a) for a in argv]
-    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
-
-
 # --------------------------------------------------------------------------------------
-# Where environments live
+# Environments
 
 
 def venv_python(path: PathLike) -> Path:
@@ -277,8 +265,19 @@ class EnvSpec:
         return hashlib.sha256(blob).hexdigest()[:12]
 
 
-def env_commands(spec: EnvSpec, path: PathLike, *, uv: str = "uv") -> list:
-    """The commands that build ``spec``'s environment at ``path``: ``uv venv``, then the install."""
+def is_env_ready(
+    spec: EnvSpec, path: PathLike, *, marker: str = DFLT_ENV_MARKER
+) -> bool:
+    """True if the environment at ``path`` (``~`` expanded) was built from this exact spec."""
+    path = Path(path).expanduser()
+    try:
+        built = json.loads((path / marker).read_text()).get("digest")
+    except (OSError, ValueError):
+        return False
+    return built == spec.digest() and venv_python(path).exists()
+
+
+def _env_commands(spec: EnvSpec, path: Path, uv: str) -> list:
     commands = [[uv, "venv", "--python", spec.python, str(path)]]
     if spec.requirements:
         install = [uv, "pip", "install", "--python", str(venv_python(path))]
@@ -288,16 +287,13 @@ def env_commands(spec: EnvSpec, path: PathLike, *, uv: str = "uv") -> list:
     return commands
 
 
-def is_env_ready(
-    spec: EnvSpec, path: PathLike, *, marker: str = DFLT_ENV_MARKER
-) -> bool:
-    """True if the environment at ``path`` (``~`` expanded) exists and was built from this exact spec."""
-    path = Path(path).expanduser()
-    try:
-        built = json.loads((path / marker).read_text()).get("digest")
-    except (OSError, ValueError):
-        return False
-    return built == spec.digest() and venv_python(path).exists()
+def _shown(command) -> str:
+    """``command`` as a user would type it, with the host's uv pins cleared."""
+    argv = [str(a) for a in command]
+    if os.name == "nt":
+        clear = "".join(f'set "{var}=" & ' for var in HOST_UV_VARS)
+        return clear + subprocess.list2cmdline(argv)
+    return "".join(f"{var}= " for var in HOST_UV_VARS) + shlex.join(argv)
 
 
 def _find_uv() -> str:
@@ -310,6 +306,19 @@ def _find_uv() -> str:
     return uv
 
 
+def _clear_env_dir(path: Path) -> None:
+    """Remove a stale environment at ``path``, refusing to touch anything else."""
+    if not path.exists():
+        return
+    if (path / "pyvenv.cfg").exists():
+        shutil.rmtree(path)
+    elif any(path.iterdir()):
+        raise RuntimeError(
+            f"{path} exists and is not a virtual environment: "
+            "refusing to replace it with one"
+        )
+
+
 def _log_to_stderr(message: str) -> None:
     print(message, file=sys.stderr)
 
@@ -318,45 +327,34 @@ def ensure_env(
     spec: EnvSpec,
     path: PathLike,
     *,
-    build: bool = True,
-    uv: Optional[str] = None,
     run: Callable = subprocess.run,
     log: Callable[[str], Any] = _log_to_stderr,
     marker: str = DFLT_ENV_MARKER,
 ) -> Path:
-    """Build ``spec``'s environment at ``path`` if missing or stale; return its interpreter.
+    """Build ``spec``'s environment at ``path`` unless it was built from this spec; return its Python.
 
-    The host's ``UV_CONSTRAINT`` is cleared for the build: its pins are for the host,
-    and an isolated environment exists precisely to differ.
+    A stale environment (built from another spec, or half-built) is removed and built
+    afresh, so a changed Python version or a dropped requirement does take effect. The
+    host's uv pins (:data:`HOST_UV_VARS`) are cleared for the build: they are for the
+    host, and an isolated environment exists precisely to differ.
 
     Args:
         spec: What to install.
-        path: The environment's folder.
-        build: If False, a missing environment raises :class:`RuntimeNotInstalled`
-            carrying the commands instead of running them.
-        uv: The ``uv`` executable (default: found on ``PATH``).
+        path: The environment's folder (``~`` expanded).
         run: Runs each command (seam; ``subprocess.run`` signature).
-        log: Receives a one-line notice before a build.
+        log: Receives a notice, with the commands, before a build.
         marker: The marker file name (a host may keep its own).
     """
     path = Path(path).expanduser()
-    python = venv_python(path)
     if is_env_ready(spec, path, marker=marker):
-        return python
-    if not build:
-        commands = "\n".join(_shell_join(c) for c in env_commands(spec, path))
-        raise RuntimeNotInstalled(
-            f"The {spec.name!r} environment is not built at {path}. Build it with:"
-            f"\n\n{commands}"
-        )
-    venv, *install = env_commands(spec, path, uv=uv or _find_uv())
-    env = {**os.environ, "UV_CONSTRAINT": ""}
-    log(f"Building the {spec.name!r} environment in {path} (one-time)")
-    if not python.exists():
-        run(venv, check=True, env=env)
-    for command in install:
+        return venv_python(path)
+    commands = _env_commands(spec, path, _find_uv())
+    shown = "\n".join(_shown(c) for c in commands)
+    log(f"Building the {spec.name!r} environment in {path} (one-time):\n{shown}")
+    _clear_env_dir(path)
+    env = {**os.environ, **{var: "" for var in HOST_UV_VARS}}
+    for command in commands:
         run(command, check=True, env=env)
-    path.mkdir(parents=True, exist_ok=True)
     (path / marker).write_text(
         json.dumps({"digest": spec.digest(), "spec": asdict(spec)}, indent=2)
     )
@@ -368,15 +366,16 @@ def ensure_env(
 
 
 _LIVE_WORKERS: "weakref.WeakSet[Worker]" = weakref.WeakSet()
-_EXPOSED_DIRS: dict = {}
 _NEUTRAL_DIR: list = []
+_TEMP_LOG = object()  # the default ``stderr``: a temporary log file
 
 
 @atexit.register
-def _close_all() -> None:
+def _kill_all() -> None:
+    """Kill every live worker; never waits on a call in flight (a daemon thread's)."""
     for worker in list(_LIVE_WORKERS):
         try:
-            worker.close()
+            worker.kill()
         except Exception:  # noqa: BLE001 - one stuck worker must not keep the rest
             pass
 
@@ -388,53 +387,9 @@ def _neutral_dir() -> str:
     return _NEUTRAL_DIR[0]
 
 
-def _package_path(package: Union[str, ModuleType, PathLike]) -> Path:
-    """The directory (or file) of a top-level package given by name, module or path."""
-    if isinstance(package, ModuleType):
-        file = Path(package.__file__)
-        return file.parent if hasattr(package, "__path__") else file
-    if isinstance(package, str):
-        spec = importlib.util.find_spec(package)
-        if spec is None:
-            raise ModuleNotFoundError(f"Cannot expose {package!r}: no such module")
-        if spec.submodule_search_locations:
-            return Path(list(spec.submodule_search_locations)[0])
-        return Path(spec.origin)
-    return Path(package)
-
-
-def _exposed_dir(packages: Iterable) -> str:
-    """A directory holding only links to ``packages``, for a worker's ``PYTHONPATH``.
-
-    Putting a package's parent directory on the path would, for a regular install,
-    expose the host's whole site-packages to an environment built to pin its own.
-    Without symlink rights (Windows without developer mode) the packages are copied.
-    """
-    sources = tuple(_package_path(p).resolve() for p in packages)
-    base = _EXPOSED_DIRS.get(sources)
-    if base is None or not all(Path(base, s.name).exists() for s in sources):
-        base = tempfile.mkdtemp(prefix="ps-isolated-path-")
-        for source in sources:
-            link = Path(base, source.name)
-            try:
-                link.symlink_to(source, target_is_directory=source.is_dir())
-            except OSError:
-                if source.is_dir():
-                    ignore = shutil.ignore_patterns("__pycache__")
-                    shutil.copytree(source, link, ignore=ignore)
-                else:
-                    shutil.copy2(source, link)
-        _EXPOSED_DIRS[sources] = base
-    return base
-
-
-def _is_adapter_file(target) -> bool:
-    return isinstance(target, os.PathLike) or str(target).endswith(".py")
-
-
-#: Run in the worker for an adapter file: load this module standalone, serve the adapter.
-#: One line (no newlines to survive Windows command-line quoting); the working
-#: directory is taken off ``sys.path`` first, as for a script.
+#: Run in the worker: load this module standalone, serve the adapter. One line (no
+#: newlines to survive Windows command-line quoting); the working directory is taken
+#: off ``sys.path`` first, as for a script.
 _BOOTSTRAP = "; ".join(
     [
         "import importlib.util, sys",
@@ -449,147 +404,116 @@ _BOOTSTRAP = "; ".join(
 
 
 class Worker:
-    """One long-lived process of another environment, answering JSON requests.
+    """One long-lived process of another environment, running an adapter file.
 
-    Started on the first :meth:`call`, stopped by :meth:`close` (also at interpreter
-    exit). One request is in flight at a time; :meth:`close` from another thread waits
-    for it.
+    Started (and the adapter loaded) on the first :meth:`call`, stopped by
+    :meth:`close` or :meth:`kill` (the latter at interpreter exit too). One request is
+    in flight at a time.
 
     Args:
         python: The environment's interpreter.
-        target: A module name, run as ``python -m target`` (it calls :func:`serve`), or
-            the path of an adapter file (a ``Path``, or a string ending in ``.py``),
-            served by :func:`serve_adapter`.
-        init: Sent as ``{"op": "load", **init}`` when the process starts; a failed load
-            stops it. Adapter files are always loaded (default ``{}``); a module driver
-            only when ``init`` is given.
-        env: Environment variables added to the host's. The host's ``PYTHONPATH``,
-            ``PYTHONHOME`` and ``VIRTUAL_ENV`` are never passed on; a ``PYTHONPATH``
-            given here comes after the ``expose`` directory.
-        cwd: The working directory (default: an empty folder, so nothing in the
-            caller's folder shadows the environment's imports).
-        log_path: Where the process's stderr goes (default: a temporary file).
-        expose: Packages (names, modules or paths) the process may import from the
-            host, e.g. ``("mypackage", "ps")`` for a module driver.
+        adapter: The adapter file (``load`` plus operations).
+        init: Keyword arguments of the adapter's ``load`` (sent on start).
+        env: Environment variables added to the host's (minus :data:`HOST_ONLY_VARS`).
+        cwd: The working directory (default: an empty folder).
+        stderr: Where the process's stderr goes: a log file path, or ``None`` for the
+            host's stderr (model output reaches the terminal, errors carry no log
+            tail). Default: a temporary log file, created on start, deleted on close.
         spawn: The process factory (seam; :class:`subprocess.Popen` signature).
     """
 
     def __init__(
         self,
         python: PathLike,
-        target: PathLike,
+        adapter: PathLike,
         *,
         init: Optional[Mapping] = None,
         env: Optional[Mapping[str, str]] = None,
         cwd: Optional[PathLike] = None,
-        log_path: Optional[PathLike] = None,
-        expose: Iterable = (),
+        stderr: Any = _TEMP_LOG,
         spawn: Callable[..., subprocess.Popen] = subprocess.Popen,
     ):
-        self.python, self.target = str(python), os.fspath(target)
-        self.is_adapter = _is_adapter_file(target)
-        self.name = Path(self.target).stem if self.is_adapter else self.target
-        if init is None and self.is_adapter:
-            init = {}
-        self.init = None if init is None else dict(init)
+        self.python, self.adapter = str(python), os.fspath(adapter)
+        self.name = Path(self.adapter).stem
+        self.init = dict(init or {})
         self.env = dict(env or {})
         self.cwd = str(cwd) if cwd else None
-        if log_path is None:
-            fd, log_path = tempfile.mkstemp(prefix=f"{self.name}-", suffix=".log")
-            os.close(fd)
-        self.log_path = Path(log_path)
-        self.expose = tuple(expose)
+        self._temp_log = stderr is _TEMP_LOG
+        self.log_path = None if self._temp_log or stderr is None else Path(stderr)
         self._spawn = spawn
         self._proc = None
-        # re-entrant: a failed load or a dead process closes the worker inside call()
+        # re-entrant: a failed load or a dead process stops the worker inside call()
         self._lock = threading.RLock()
         _LIVE_WORKERS.add(self)
 
-    def _argv(self) -> list:
-        if self.is_adapter:
-            return [self.python, "-u", "-c", _BOOTSTRAP, __file__, self.target]
-        return [self.python, "-u", "-m", self.target]
-
-    def _environ(self) -> dict:
-        env = {**clean_environ(), **self.env}
-        path = [_exposed_dir(self.expose)] if self.expose else []
-        path += [self.env["PYTHONPATH"]] if self.env.get("PYTHONPATH") else []
-        env.pop("PYTHONPATH", None)
-        if path:
-            env["PYTHONPATH"] = os.pathsep.join(path)
-        return env
-
-    def _start(self) -> None:
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.log_path, "ab") as log:
-            self._proc = self._spawn(
-                self._argv(),
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=log,
-                cwd=self.cwd or _neutral_dir(),
-                env=self._environ(),
-                text=True,
-                bufsize=1,
-            )
-        if self.init is not None:
-            self._send(json.dumps({"op": "load", **self.init}), loading=True)
-
     @property
-    def alive(self) -> bool:
+    def running(self) -> bool:
         """Whether the process is running."""
         return self._proc is not None and self._proc.poll() is None
 
-    running = alive
-
-    def call(self, request: Union[str, Mapping, None] = None, /, **fields) -> Any:
-        """Send a request; return the driver's result (starting the process if needed).
-
-        ``call({"a": 1})`` sends that dict; ``call("op", **kw)`` sends
-        ``{"op": "op", **kw}`` (the adapter-file form).
+    def call(self, op: str, /, **request) -> Any:
+        """Run ``op(state, **request)`` in the worker (starting it on first use).
 
         Raises:
-            WorkerError: The request failed in the worker, or the worker died.
+            WorkerError: The operation failed in the worker, or the worker died.
+            TypeError, ValueError: ``request`` is not JSON-serialisable (the worker is
+                left as it was).
         """
-        if isinstance(request, str):
-            request = {"op": request, **fields}
-        else:
-            request = {**(request or {}), **fields}
-        payload = json.dumps(
-            request
-        )  # a request that cannot be sent is the caller's error
+        payload = json.dumps({"op": op, **request})
         with self._lock:
-            if not self.alive:
+            if not self.running:
                 self._start()
             return self._send(payload)
 
+    def _start(self) -> None:
+        if self._temp_log and (self.log_path is None or not self.log_path.exists()):
+            fd, path = tempfile.mkstemp(prefix=f"{self.name}-", suffix=".log")
+            os.close(fd)
+            self.log_path = Path(path)
+        argv = [self.python, "-u", "-c", _BOOTSTRAP, __file__, self.adapter]
+        options = dict(
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            cwd=self.cwd or _neutral_dir(),
+            env={**clean_environ(), **self.env},
+            text=True,
+            bufsize=1,
+        )
+        if self.log_path is None:
+            self._proc = self._spawn(argv, stderr=None, **options)
+        else:
+            self.log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.log_path, "ab") as log:
+                self._proc = self._spawn(argv, stderr=log, **options)
+        self._send(json.dumps({"op": "load", **self.init}), loading=True)
+
     def _send(self, payload: str, *, loading: bool = False) -> Any:
+        proc = self._proc
         try:
-            reply = self._exchange(payload)
+            reply = self._exchange(proc, payload)
         except BaseException:
             # An interrupted or garbled exchange would leave a reply in the pipe that the
             # next call would read as its own: stop the worker (it restarts lazily).
-            self._kill()
+            self._stop(proc)
             raise
         if not reply.get("ok"):
-            trace = (reply.get("traceback") or "")[-LOG_TAIL_CHARS:]
             if loading:
-                self._kill()  # a model that failed to load must not serve calls
+                self._stop(proc)  # a model that failed to load must not serve calls
+            trace = (reply.get("traceback") or "")[-LOG_TAIL_CHARS:]
             raise WorkerError(
                 f"{self.name} worker failed: {reply.get('error')}\n{trace}"
             )
         return reply.get("result")
 
-    def _exchange(self, payload: str) -> dict:
-        proc = self._proc
+    def _exchange(self, proc, payload: str) -> dict:
         try:
             proc.stdin.write(payload + "\n")
             proc.stdin.flush()
             line = proc.stdout.readline()
-        except (OSError, ValueError):  # a broken pipe, or a stream already closed
+        except (OSError, ValueError, AttributeError):  # a broken or closed pipe
             line = ""
         if not line:
-            raise self._died()
+            raise self._died(proc)
         try:
             reply = json.loads(line)
         except ValueError:
@@ -600,48 +524,69 @@ class Worker:
             )
         return reply
 
-    def _died(self) -> WorkerError:
+    def _died(self, proc) -> WorkerError:
         try:
-            code = self._proc.wait(timeout=DFLT_CLOSE_TIMEOUT)
+            code = proc.wait(timeout=DFLT_CLOSE_TIMEOUT)
         except subprocess.TimeoutExpired:
             code = None
+        where = (
+            f"log: {self.log_path}):\n{self.log_tail()}"
+            if self.log_path
+            else "its stderr went to this process's)"
+        )
         return WorkerError(
-            f"The {self.name} worker exited (code {code}) before answering "
-            f"(log: {self.log_path}):\n{self.log_tail()}"
+            f"The {self.name} worker exited (code {code}) before answering ({where}"
         )
 
-    def log_tail(self) -> str:
-        """The end of the process's log (stderr)."""
+    def log_tail(self, chars: int = LOG_TAIL_CHARS) -> str:
+        """The last ``chars`` characters of the process's log ("" without a log file)."""
+        if self.log_path is None:
+            return ""
         try:
-            return self.log_path.read_text(errors="replace")[-LOG_TAIL_CHARS:]
+            with open(self.log_path, "rb") as log:
+                log.seek(0, os.SEEK_END)
+                log.seek(
+                    max(0, log.tell() - 4 * chars)
+                )  # utf-8: at most 4 bytes a char
+                return log.read().decode("utf-8", errors="replace")[-chars:]
         except OSError:
             return ""
 
-    def _kill(self) -> None:
-        with self._lock:
-            proc, self._proc = self._proc, None
-        if proc is not None:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait()
-            _close_pipes(proc)
+    def _stop(self, proc) -> None:
+        """Kill ``proc`` if it is still this worker's process (keeps the log)."""
+        if self._proc is proc:
+            self._proc = None
+        _terminate(proc)
+
+    def _remove_temp_log(self) -> None:
+        if self._temp_log and self.log_path is not None:
+            try:
+                self.log_path.unlink()
+            except OSError:
+                pass
+            self.log_path = None
+
+    def kill(self) -> None:
+        """Kill the process now, without waiting for a call in flight (which then fails)."""
+        proc, self._proc = self._proc, None
+        _terminate(proc)
+        self._remove_temp_log()
 
     def close(self, timeout: float = DFLT_CLOSE_TIMEOUT) -> None:
-        """Stop the process (closing its stdin ends :func:`serve`'s loop); kill it after ``timeout``.
+        """Stop the process: close its stdin (ending the serve loop), kill it after ``timeout``.
 
         From another thread, this waits for a call in flight to finish first.
         """
         with self._lock:
             proc, self._proc = self._proc, None
-        if proc is None:
-            return
-        try:
-            proc.stdin.close()
-            proc.wait(timeout=timeout)
-        except (OSError, ValueError, subprocess.TimeoutExpired):
-            proc.kill()
-            proc.wait()
-        _close_pipes(proc)
+        if proc is not None:
+            try:
+                proc.stdin.close()
+                proc.wait(timeout=timeout)
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                pass
+            _terminate(proc)
+        self._remove_temp_log()
 
     def __enter__(self):
         return self
@@ -656,51 +601,18 @@ class Worker:
             pass
 
 
-def _close_pipes(proc) -> None:
+def _terminate(proc) -> None:
+    """Kill ``proc`` if it still runs, collect it, and close our ends of its pipes."""
+    if proc is None:
+        return
+    if proc.poll() is None:
+        proc.kill()
+        proc.wait()
     for stream in (getattr(proc, "stdin", None), getattr(proc, "stdout", None)):
         try:
             stream.close()
         except Exception:  # noqa: BLE001 - already closed, or a fake without close
             pass
-
-
-class WorkerPool:
-    """Workers shared across threads, one per key, each made once.
-
-    ``get(*args, **kwargs)`` returns ``make(*args, **kwargs)``, made on the first ask
-    for those arguments (they are the key, so they must be hashable). One lock covers
-    the making, so two threads never build the same environment at once.
-
-    >>> pool = WorkerPool(lambda size: object())
-    >>> pool.get("small") is pool.get("small") is not pool.get("large")
-    True
-    """
-
-    def __init__(self, make: Callable[..., Worker]):
-        self.make = make
-        self._workers: dict = {}
-        self._lock = threading.Lock()
-
-    def get(self, *args, **kwargs) -> Worker:
-        """The worker for these arguments (made on first use)."""
-        key = (args, tuple(sorted(kwargs.items())))
-        worker = self._workers.get(key)
-        if worker is not None:
-            return worker
-        with self._lock:
-            if key not in self._workers:
-                self._workers[key] = self.make(*args, **kwargs)
-            return self._workers[key]
-
-    def close(self) -> None:
-        """Stop every worker; the next ``get`` starts afresh."""
-        with self._lock:
-            workers, self._workers = list(self._workers.values()), {}
-        for worker in workers:
-            try:
-                worker.close()
-            except Exception:  # noqa: BLE001 - one stuck worker must not keep the rest
-                pass
 
 
 # --------------------------------------------------------------------------------------
@@ -715,8 +627,39 @@ def _protect_stdout():
     return replies
 
 
-def _serve_loop(handle: Callable[[Any], Any], lines, replies) -> None:
-    for line in lines:
+def _adapter_handler(adapter) -> Callable[[dict], Any]:
+    state = None
+
+    def handle(request: dict) -> Any:
+        nonlocal state
+        op = request.pop("op")
+        if op == "load":
+            state = adapter.load(**request)
+            return {}
+        func = getattr(adapter, op, None)
+        if op.startswith("_") or not callable(func):
+            raise ValueError(f"Unknown operation {op!r}")
+        result = func(state, **request)
+        return {} if result is None else result
+
+    return handle
+
+
+def serve_adapter(path: PathLike) -> None:
+    """Load the adapter file at ``path`` and answer JSON requests on stdin (what a :class:`Worker` runs).
+
+    stdout is protected before the adapter is loaded, so what it prints on import goes
+    to stderr too; the adapter's folder is put first on ``sys.path``.
+    """
+    replies = _protect_stdout()
+    path = os.path.abspath(os.fspath(path))
+    sys.path.insert(0, os.path.dirname(path))
+    spec = importlib.util.spec_from_file_location("ps_isolated_adapter", path)
+    adapter = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = adapter  # what dataclasses and pickle look up
+    spec.loader.exec_module(adapter)
+    handle = _adapter_handler(adapter)
+    for line in sys.stdin:
         if not line.strip():
             continue
         try:
@@ -729,55 +672,6 @@ def _serve_loop(handle: Callable[[Any], Any], lines, replies) -> None:
             }
         replies.write(json.dumps(reply) + "\n")
         replies.flush()
-
-
-def serve(handle: Callable[[Any], Any], *, stdin=None) -> None:
-    """The driver side of :class:`Worker`: answer each JSON line on stdin with ``handle``.
-
-    ``handle(request)`` returns something JSON-serialisable; an exception is sent back
-    (type, message, traceback) and the loop carries on. Library output to stdout,
-    Python or C level, goes to stderr so it cannot corrupt the replies.
-    """
-    replies = _protect_stdout()
-    _serve_loop(handle, stdin or sys.stdin, replies)
-
-
-def adapter_handler(adapter: ModuleType) -> Callable[[dict], dict]:
-    """A :func:`serve` handler for an adapter module: ``load(**init)``, then operations.
-
-    ``{"op": "load", **init}`` sets the state to ``adapter.load(**init)``; any other
-    ``{"op": name, **request}`` returns ``adapter.<name>(state, **request) or {}``.
-    """
-    state = None
-
-    def handle(request: dict) -> dict:
-        nonlocal state
-        op = request.pop("op")
-        if op == "load":
-            state = adapter.load(**request)
-            return {}
-        func = getattr(adapter, op, None)
-        if op.startswith("_") or not callable(func):
-            raise ValueError(f"Unknown operation {op!r}")
-        return func(state, **request) or {}
-
-    return handle
-
-
-def serve_adapter(path: PathLike, *, stdin=None) -> None:
-    """Load the adapter file at ``path`` and :func:`serve` it (what a :class:`Worker` runs).
-
-    The adapter is loaded after stdout is protected, so what it prints on import goes
-    to the log too.
-    """
-    replies = _protect_stdout()
-    spec = importlib.util.spec_from_file_location(
-        "ps_isolated_adapter", os.fspath(path)
-    )
-    adapter = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = adapter  # what dataclasses and pickle look up
-    spec.loader.exec_module(adapter)
-    _serve_loop(adapter_handler(adapter), stdin or sys.stdin, replies)
 
 
 # --------------------------------------------------------------------------------------
@@ -795,22 +689,34 @@ def run_process(
 
     ``env`` is added to the host's environment (minus :data:`HOST_ONLY_VARS`); stdin is
     closed, so a program prompting for input fails instead of waiting. Past ``timeout``
-    seconds the process is killed and :class:`subprocess.TimeoutExpired` raised.
+    seconds the process and everything it spawned are killed, and
+    :class:`subprocess.TimeoutExpired` is raised.
 
     >>> import sys
     >>> run_process([sys.executable, "-c", "print('hi')"])
     (0, 'hi\\n')
     """
-    proc = subprocess.run(
-        [str(c) for c in cmd],
+    from ps.util import NEW_PROCESS_GROUP, _kill_and_reap, kill_process_tree
+
+    argv = [str(c) for c in cmd]
+    proc = subprocess.Popen(
+        argv,
         cwd=cwd,
         env={**clean_environ(), **(env or {})},
-        timeout=timeout,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
         errors="replace",
+        **NEW_PROCESS_GROUP,
     )
-    return proc.returncode, proc.stdout
+    try:
+        output, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_and_reap(proc, kill=kill_process_tree)
+        raise subprocess.TimeoutExpired(argv, timeout) from None
+    except BaseException:
+        _kill_and_reap(proc, kill=kill_process_tree)
+        raise
+    return proc.returncode, output

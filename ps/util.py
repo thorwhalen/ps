@@ -93,7 +93,40 @@ def _validated_timeout(timeout):
     return None if isinf(timeout) else timeout
 
 
-def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT):
+#: ``Popen`` arguments that start a process as the leader of its own group, so
+#: :func:`kill_process_tree` can take its descendants down with it.
+NEW_PROCESS_GROUP = {} if os.name == "nt" else {"start_new_session": True}
+
+
+def kill_process_tree(process):
+    """Kill ``process`` and everything it spawned.
+
+    On POSIX the process must have been started with :data:`NEW_PROCESS_GROUP`
+    (its group is killed); on Windows ``taskkill /T`` follows the process tree.
+    Falls back to killing ``process`` alone when that fails.
+    """
+    if process.poll() is not None:
+        return
+    try:
+        if os.name == "nt":
+            from subprocess import DEVNULL, call
+
+            call(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdout=DEVNULL,
+                stderr=DEVNULL,
+            )
+        else:
+            import signal
+
+            os.killpg(process.pid, signal.SIGKILL)
+    except OSError:
+        pass
+    if process.poll() is None:
+        process.kill()
+
+
+def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT, kill=None):
     """Kill ``process`` and let go of its pipes, without blocking the caller.
 
     ``Popen.communicate`` drains the pipes, but a killed child can leave
@@ -103,10 +136,14 @@ def _kill_and_reap(process, *, reap_timeout=_REAP_TIMEOUT):
     (where that is safe -- see ``_CAN_CLOSE_PIPES_MID_READ``) and collecting the
     already-killed direct child.
 
-    Note that only the direct child is killed: anything *it* spawned is not ours
-    to find, and outlives the call.
+    By default only the direct child is killed: anything *it* spawned is not ours
+    to find, and outlives the call. Pass ``kill=kill_process_tree`` (for a process
+    started with :data:`NEW_PROCESS_GROUP`) to kill its descendants too.
     """
-    process.kill()
+    if kill is None:
+        process.kill()
+    else:
+        kill(process)
     try:
         process.communicate(timeout=reap_timeout)
         return

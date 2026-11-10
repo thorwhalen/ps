@@ -1,8 +1,8 @@
 """Call any available system command from python.
 
-Importing ``ps`` binds one callable per executable found on your ``PATH``, named
-after a python-safe version of the command name, so shell tools are reachable as
-ordinary python functions::
+Every executable found on your ``PATH`` is reachable as an attribute of ``ps``,
+named after a python-safe version of the command name, so shell tools are
+reachable as ordinary python functions::
 
     import ps
     ps.ls('-la')          # runs "ls -la", returns its output as bytes
@@ -24,14 +24,36 @@ is computed lazily by *running* the command (``man 1 <cmd>``, then
 generators do -- will execute every binary on the machine. Each such probe gets
 its stdin closed and is bounded by :data:`ps.base.DFLT_DOC_TIMEOUT`, so it cannot
 hang, but it is still a real execution.
+
+The ``PATH`` is scanned on the first such attribute access (``ps.ls``,
+``from ps import ls``, ``dir(ps)``), not on ``import ps``, so importing a
+submodule (e.g. :mod:`ps.isolated`) costs no scan.
 """
+
+from pathlib import Path as _Path
 
 from ps.base import Command, Commands
 
-# Bind every locally available system command as a module-level callable.
-# `Commands()` is a Mapping of {identifier: callable}, so updating the module
-# namespace with it is enough -- and, unlike an explicit loop, it leaves behind
-# no temporary names needing cleanup. (Deleting the loop variables raised
-# NameError whenever no command was found, which is exactly what happened on
-# Windows, where PATH was never parsed correctly.)
-globals().update(Commands())
+_COMMANDS = None  # the PATH's commands, found on first use
+
+
+def _commands():
+    global _COMMANDS
+    if _COMMANDS is None:
+        _COMMANDS = Commands()
+    return _COMMANDS
+
+
+def __getattr__(name):
+    """``ps.<command>``: the command of that identifier found on ``PATH`` (PEP 562)."""
+    # Private names and submodules not imported yet are never commands: no scan.
+    if name.startswith("_") or (_Path(__file__).parent / f"{name}.py").exists():
+        raise AttributeError(f"module 'ps' has no attribute {name!r}")
+    try:
+        return _commands()[name]
+    except KeyError:
+        raise AttributeError(f"module 'ps' has no attribute {name!r}") from None
+
+
+def __dir__():
+    return sorted(set(globals()) | set(_commands()))

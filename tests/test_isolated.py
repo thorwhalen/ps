@@ -1,8 +1,9 @@
-"""Tests for ps.isolated: locating and building environments, the worker, its two driver
-styles, the pool and the one-shot runner. No models, no network: workers run this
-interpreter, and the one real ``uv`` build is skipped when uv is missing.
+"""Tests for ps.isolated: locating and building environments, the adapter worker, and
+the one-shot runner. No models, no network: workers run this interpreter, and the one
+real ``uv`` build is skipped when uv is missing.
 """
 
+import hashlib
 import io
 import json
 import os
@@ -10,65 +11,100 @@ import re
 import shutil
 import subprocess
 import sys
+import textwrap
 import threading
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
-import ps
 from ps import isolated
 from ps.isolated import (
+    LOG_TAIL_CHARS,
     EnvSpec,
     Runtime,
     RuntimeNotInstalled,
     Worker,
     WorkerError,
-    WorkerPool,
     clean_environ,
     ensure_env,
-    env_commands,
     is_env_ready,
     run_process,
     venv_python,
 )
 
-TESTS_DIR = str(Path(__file__).resolve().parent)
+posix_only = pytest.mark.skipif(
+    os.name == "nt", reason="checks a pid with os.kill(pid, 0)"
+)
+
+ECHO_ADAPTER = """\
+import os, sys, threading, time
+print('import-time noise')
+
+def load(**kw):
+    return kw
+
+def echo(state, **kw):
+    print('noise on stdout')
+    sys.__stdout__.write('noise on the original stdout\\n')
+    os.write(1, b'C-level noise on fd 1\\n')
+    return {'state': state, **kw}
+
+def nothing(state):
+    return None
+
+def zero(state):
+    return 0
+
+def environ(state):
+    return {k: os.environ.get(k) for k in ('PYTHONPATH', 'PYTHONHOME', 'VIRTUAL_ENV')}
+
+def where(state):
+    return {'prefix': sys.prefix, 'cwd': os.getcwd(), 'path': sys.path, 'pid': os.getpid()}
+
+def boom(state):
+    raise KeyError('nope')
+
+def die(state, pad=0):
+    sys.stderr.write('x' * pad + 'dying clue in the log\\n'); sys.stderr.flush(); os._exit(3)
+
+def sleep(state, seconds):
+    time.sleep(seconds); return {'slept': seconds}
+
+def linger(state):
+    # a non-daemon thread: the process will not end when its stdin closes
+    threading.Thread(target=time.sleep, args=(60,)).start(); return {}
+"""
 
 
-def _module_worker(**kw):
-    """A worker running tests/_echo_driver.py with only ``ps`` exposed from the host."""
-    return Worker(
-        sys.executable,
-        "_echo_driver",
-        expose=(ps,),
-        env={"PYTHONPATH": TESTS_DIR},
-        **kw,
-    )
-
-
-def _adapter(tmp_path, source, name="a_adapter.py"):
-    path = tmp_path / name
-    path.write_text(source)
+@pytest.fixture
+def echo(tmp_path):
+    path = tmp_path / "adapters" / "echo_adapter.py"
+    path.parent.mkdir()
+    path.write_text(ECHO_ADAPTER)
     return path
 
 
-ECHO_ADAPTER = (
-    "import os, sys\n"
-    "print('import-time noise')\n"
-    "def load(**kw): return kw\n"
-    "def echo(state, **kw):\n"
-    "    print('noise on stdout')\n"
-    "    sys.__stdout__.write('noise on the original stdout\\n')\n"
-    "    os.write(1, b'C-level noise on fd 1\\n')\n"
-    "    return {'state': state, **kw}\n"
-    "def environ(state):\n"
-    "    return {k: os.environ.get(k) for k in ('PYTHONPATH', 'PYTHONHOME', 'VIRTUAL_ENV')}\n"
-    "def where(state): return {'prefix': sys.prefix, 'cwd': os.getcwd(), 'path': sys.path}\n"
-    "def boom(state): raise KeyError('nope')\n"
-    "def die(state):\n"
-    "    sys.stderr.write('dying clue in the log\\n'); sys.stderr.flush(); os._exit(3)\n"
-)
+def _worker(adapter, tmp_path, **kw):
+    return Worker(sys.executable, adapter, stderr=tmp_path / "w.log", **kw)
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _wait_dead(pid, seconds=10):
+    deadline = time.monotonic() + seconds
+    while _pid_alive(pid) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    return not _pid_alive(pid)
 
 
 # Runtime -------------------------------------------------------------------------------
@@ -90,9 +126,7 @@ def test_runtime_root_order_own_variable_then_base_variable_then_default(
 ):
     monkeypatch.delenv("PS_TOY_DIR", raising=False)
     monkeypatch.delenv("PS_TOY_BASE", raising=False)
-    assert (
-        _runtime(default_dir=str(tmp_path / "dflt")).root() == tmp_path / "dflt" / "toy"
-    )
+    assert _runtime(default_dir=str(tmp_path / "d")).root() == tmp_path / "d" / "toy"
     monkeypatch.setenv("PS_TOY_BASE", str(tmp_path / "all"))
     assert _runtime().root() == tmp_path / "all" / "toy"
     monkeypatch.setenv("PS_TOY_DIR", str(tmp_path / "mine"))
@@ -123,8 +157,9 @@ def test_runtime_finds_a_windows_layout_venv(monkeypatch, tmp_path):
     monkeypatch.setenv("PS_TOY_DIR", str(tmp_path))
     (tmp_path / "sub" / ".venv" / "Scripts").mkdir(parents=True)
     (tmp_path / "sub" / ".venv" / "Scripts" / "python.exe").touch()
-    rt = _runtime(venv="sub/.venv")
-    assert rt.interpreter() == tmp_path / "sub/.venv/Scripts/python.exe"
+    assert _runtime(venv="sub/.venv").interpreter() == (
+        tmp_path / "sub/.venv/Scripts/python.exe"
+    )
 
 
 def test_venv_python_prefers_the_layout_that_exists(tmp_path):
@@ -136,13 +171,11 @@ def test_venv_python_prefers_the_layout_that_exists(tmp_path):
     assert venv_python(tmp_path) == tmp_path / other
 
 
-# EnvSpec / ensure_env ---------------------------------------------------------------------
+# EnvSpec / ensure_env -------------------------------------------------------------------
 
 
 def test_digest_is_the_one_voxy_built_its_environments_with():
     """Same fields, same JSON: environments built before the move are not rebuilt."""
-    import hashlib
-
     spec = EnvSpec("demo", ("numpy",), python="3.11", torch_backend="cpu")
     content = {
         "name": "demo",
@@ -150,19 +183,11 @@ def test_digest_is_the_one_voxy_built_its_environments_with():
         "python": "3.11",
         "torch_backend": "cpu",
     }
-    expected = hashlib.sha256(json.dumps(content, sort_keys=True).encode()).hexdigest()[
-        :12
-    ]
-    assert spec.digest() == expected
-    assert (
-        EnvSpec("demo", ("numpy<2",), python="3.11", torch_backend="cpu").digest()
-        != expected
-    )
+    blob = json.dumps(content, sort_keys=True).encode()
+    assert spec.digest() == hashlib.sha256(blob).hexdigest()[:12]
 
 
 def test_digest_ignores_fields_a_host_adds():
-    from dataclasses import dataclass, field
-
     @dataclass(frozen=True)
     class HostSpec(EnvSpec):
         env_vars: dict = field(default_factory=dict)
@@ -171,70 +196,95 @@ def test_digest_ignores_fields_a_host_adds():
     assert HostSpec("demo", ("numpy",), env_vars={"X": "1"}).digest() == plain.digest()
 
 
-def _fake_uv(commands):
-    """A ``run`` that records commands and makes the venv interpreter ``uv venv`` would."""
+@pytest.fixture
+def fake_uv(monkeypatch):
+    """A ``run`` that records commands and fakes what uv would leave on disk."""
+    monkeypatch.setattr(isolated, "_find_uv", lambda: "uv")
+    commands = []
 
     def run(cmd, **kwargs):
         commands.append(list(cmd))
         assert kwargs["check"] is True
-        assert kwargs["env"]["UV_CONSTRAINT"] == ""  # host pins don't leak in
+        for var in isolated.HOST_UV_VARS:  # host pins don't leak in
+            assert kwargs["env"][var] == ""
         if cmd[1] == "venv":
-            python = venv_python(cmd[-1])
-            python.parent.mkdir(parents=True, exist_ok=True)
-            python.touch()
+            path = Path(cmd[-1])
+            assert not path.exists() or not any(path.iterdir()), "a fresh venv"
+            path.mkdir(parents=True, exist_ok=True)
+            (path / "pyvenv.cfg").write_text(f"version = {cmd[3]}\n")
+            venv_python(path).parent.mkdir(parents=True)
+            venv_python(path).touch()
+        else:
+            site = Path(cmd[cmd.index("--python") + 1]).parent.parent / "site"
+            site.mkdir(exist_ok=True)
+            for req in (a for a in cmd[5:] if not a.startswith("-") and a != "cpu"):
+                (site / req).touch()
 
+    run.commands = commands
     return run
 
 
-def test_ensure_env_builds_once_then_reuses_and_rebuilds_on_a_changed_spec(
-    tmp_path, monkeypatch
-):
-    monkeypatch.setenv("UV_CONSTRAINT", "/host/constraints.txt")
-    spec, path, commands = (
-        EnvSpec("demo", ("numpy",), torch_backend="cpu"),
-        tmp_path / "demo",
-        [],
-    )
-    run = _fake_uv(commands)
-    python = ensure_env(spec, path, uv="uv", run=run, log=lambda m: None)
-    assert python == venv_python(path) and is_env_ready(spec, path)
-    assert [c[:2] for c in commands] == [["uv", "venv"], ["uv", "pip"]]
-    assert commands[1][-3:] == ["--torch-backend", "cpu", "numpy"]
-
-    ensure_env(spec, path, uv="uv", run=run, log=lambda m: None)
-    assert len(commands) == 2  # ready: nothing runs
-
-    changed = EnvSpec("demo", ("numpy<2",), torch_backend="cpu")
-    assert not is_env_ready(changed, path)
-    ensure_env(changed, path, uv="uv", run=run, log=lambda m: None)
-    assert [c[:2] for c in commands[2:]] == [["uv", "pip"]]  # venv kept, reinstalled
-    assert is_env_ready(changed, path) and not is_env_ready(spec, path)
+def _build(spec, path, run, **kw):
+    return ensure_env(spec, path, run=run, log=lambda m: None, **kw)
 
 
-def test_a_host_keeps_its_own_marker(tmp_path):
-    spec, path = EnvSpec("demo", ("numpy",)), tmp_path / "demo"
+def test_ensure_env_builds_once_then_reuses(tmp_path, fake_uv, monkeypatch):
+    for var in isolated.HOST_UV_VARS:
+        monkeypatch.setenv(var, "/host/pins.txt")
+    spec, path = EnvSpec("demo", ("numpy",), torch_backend="cpu"), tmp_path / "demo"
+    assert _build(spec, path, fake_uv) == venv_python(path)
+    assert is_env_ready(spec, path)
+    assert [c[:2] for c in fake_uv.commands] == [["uv", "venv"], ["uv", "pip"]]
+    assert fake_uv.commands[1][-3:] == ["--torch-backend", "cpu", "numpy"]
+    _build(spec, path, fake_uv)
+    assert len(fake_uv.commands) == 2  # ready: nothing runs
+
+
+def test_a_changed_python_rebuilds_the_venv_from_scratch(tmp_path, fake_uv):
+    path = tmp_path / "demo"
+    _build(EnvSpec("demo", ("numpy",), python="3.11"), path, fake_uv)
+    (path / "left-over").touch()
+    changed = EnvSpec("demo", ("numpy",), python="3.12")
+    _build(changed, path, fake_uv)
+    assert [c[:2] for c in fake_uv.commands[2:]] == [["uv", "venv"], ["uv", "pip"]]
+    assert "3.12" in (path / "pyvenv.cfg").read_text()
+    assert not (path / "left-over").exists() and is_env_ready(changed, path)
+
+
+def test_a_dropped_requirement_is_gone_after_the_rebuild(tmp_path, fake_uv):
+    path = tmp_path / "demo"
+    _build(EnvSpec("demo", ("numpy", "torch")), path, fake_uv)
+    site = venv_python(path).parent.parent / "site"
+    assert sorted(os.listdir(site)) == ["numpy", "torch"]
+    _build(EnvSpec("demo", ("numpy",)), path, fake_uv)
+    assert sorted(os.listdir(site)) == ["numpy"]
+
+
+def test_ensure_env_refuses_to_replace_a_folder_that_is_not_a_venv(tmp_path, fake_uv):
+    path = tmp_path / "precious"
+    path.mkdir()
+    (path / "data.txt").write_text("keep me")
+    with pytest.raises(RuntimeError, match="not a virtual environment"):
+        _build(EnvSpec("demo", ()), path, fake_uv)
+    assert (path / "data.txt").read_text() == "keep me" and not fake_uv.commands
+
+
+def test_the_build_notice_shows_the_commands_with_the_pins_cleared(tmp_path, fake_uv):
+    said = []
     ensure_env(
-        spec,
-        path,
-        uv="uv",
-        run=_fake_uv([]),
-        log=lambda m: None,
-        marker=".host-env.json",
+        EnvSpec("demo", ("numpy<2",)), tmp_path / "e", run=fake_uv, log=said.append
     )
+    assert "numpy<2" in said[0] and "uv venv" in said[0]
+    for var in isolated.HOST_UV_VARS:
+        assert var in said[0]
+
+
+def test_a_host_keeps_its_own_marker(tmp_path, fake_uv):
+    spec, path = EnvSpec("demo", ("numpy",)), tmp_path / "demo"
+    _build(spec, path, fake_uv, marker=".host-env.json")
     assert (path / ".host-env.json").exists()
-    assert is_env_ready(spec, path, marker=".host-env.json") and not is_env_ready(
-        spec, path
-    )
-
-
-def test_an_unbuilt_env_without_build_raises_with_the_commands(tmp_path):
-    spec, path = EnvSpec("demo", ("numpy<2",), python="3.11"), tmp_path / "demo env"
-    with pytest.raises(RuntimeNotInstalled) as err:
-        ensure_env(spec, path, build=False)
-    message = str(err.value)
-    for command in env_commands(spec, path):
-        assert isolated._shell_join(command) in message
-    assert "numpy<2" in message
+    assert is_env_ready(spec, path, marker=".host-env.json")
+    assert not is_env_ready(spec, path)
 
 
 def test_a_missing_uv_says_how_to_install_it(tmp_path, monkeypatch):
@@ -244,131 +294,179 @@ def test_a_missing_uv_says_how_to_install_it(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not installed")
-def test_a_real_uv_env_runs_an_adapter_in_isolation(tmp_path, monkeypatch):
+def test_a_real_uv_env_runs_an_adapter_in_isolation(tmp_path, monkeypatch, echo):
     """No requirements and this interpreter as the base: no download, about a second."""
     monkeypatch.setenv("UV_PYTHON_DOWNLOADS", "never")
     monkeypatch.setenv("UV_OFFLINE", "1")
     spec, path = EnvSpec("bare", (), python=sys.executable), tmp_path / "bare"
     python = ensure_env(spec, path, log=lambda m: None)
     assert is_env_ready(spec, path)
-    with Worker(
-        python, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    ) as w:
+    with Worker(python, echo, stderr=tmp_path / "w.log") as w:
         where = w.call("where")
     assert Path(where["prefix"]).resolve() == path.resolve()
-    assert not any(Path(p).name == "ps" for p in where["path"])
 
 
-# Worker: adapter files (voxy's style) -----------------------------------------------------
+# Worker ---------------------------------------------------------------------------------
 
 
-def test_adapter_worker_round_trip_survives_stdout_noise(tmp_path):
-    log = tmp_path / "w.log"
-    with Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), init={"a": 1}, log_path=log
-    ) as w:
+def test_round_trip_survives_stdout_noise_at_import_and_call_time(echo, tmp_path):
+    with _worker(echo, tmp_path, init={"a": 1}) as w:
         assert w.call("echo", b=2) == {"state": {"a": 1}, "b": 2}
-        assert w.call({"op": "echo", "c": 3}) == {"state": {"a": 1}, "c": 3}
-    text = log.read_text()
-    for noise in (
-        "import-time noise",
-        "noise on stdout",
-        "original stdout",
-        "C-level noise",
-    ):
+    text = (tmp_path / "w.log").read_text()
+    for noise in ("import-time", "noise on stdout", "original stdout", "C-level"):
         assert noise in text
 
 
-def test_adapter_worker_reports_errors_and_keeps_serving(tmp_path):
-    with Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    ) as w:
+def test_a_string_path_is_an_adapter_too(echo, tmp_path):
+    with _worker(str(echo), tmp_path) as w:
+        assert w.call("echo", x=1) == {"state": {}, "x": 1}
+
+
+def test_only_none_becomes_an_empty_result(echo, tmp_path):
+    with _worker(echo, tmp_path) as w:
+        assert w.call("nothing") == {} and w.call("zero") == 0
+
+
+def test_errors_are_reported_and_the_worker_keeps_serving(echo, tmp_path):
+    with _worker(echo, tmp_path) as w:
         with pytest.raises(WorkerError, match="KeyError: 'nope'"):
             w.call("boom")
         with pytest.raises(WorkerError, match="Unknown operation '_private'"):
             w.call("_private")
-        assert w.running
-        assert w.call("echo") == {"state": {}}
+        assert w.running and w.call("echo") == {"state": {}}
 
 
 def test_a_worker_that_fails_to_load_raises_and_stops(tmp_path):
-    adapter = _adapter(tmp_path, "def load(**kw): raise ImportError('no torch here')\n")
-    worker = Worker(sys.executable, adapter, log_path=tmp_path / "w.log")
+    adapter = tmp_path / "b_adapter.py"
+    adapter.write_text("def load(**kw): raise ImportError('no torch here')\n")
+    worker = _worker(adapter, tmp_path)
     with pytest.raises(WorkerError, match="no torch here"):
         worker.call("anything")
     assert not worker.running
 
 
-def test_a_dying_worker_puts_its_log_tail_in_the_error(tmp_path):
-    worker = Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    )
-    with pytest.raises(
-        WorkerError, match=r"(?s)exited \(code 3\).*dying clue in the log"
-    ):
-        worker.call("die")
-    assert not worker.alive
-    assert worker.call("echo", x=1) == {"state": {}, "x": 1}, (
-        "the next call starts a fresh one"
-    )
+def test_a_dying_worker_puts_its_log_tail_in_the_error(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
+    with pytest.raises(WorkerError, match=r"(?s)exited \(code 3\).*dying clue") as err:
+        worker.call("die", pad=3 * LOG_TAIL_CHARS)
+    assert len(worker.log_tail()) == LOG_TAIL_CHARS
+    assert worker.log_tail().endswith("dying clue in the log\n")
+    assert len(str(err.value)) < 2 * LOG_TAIL_CHARS
+    assert not worker.running
+    assert worker.call("echo", x=1) == {"state": {}, "x": 1}, "a fresh one starts"
     worker.close()
 
 
-def test_host_python_variables_do_not_reach_the_worker(tmp_path, monkeypatch):
+def test_stderr_none_leaves_the_output_on_the_hosts_terminal(echo, capfd):
+    worker = Worker(sys.executable, echo, stderr=None)
+    assert worker.call("echo") == {"state": {}}
+    with pytest.raises(WorkerError, match="stderr went to this process") as err:
+        worker.call("die")
+    worker.close()
+    assert "dying clue" in capfd.readouterr().err
+    assert "dying clue" not in str(err.value) and worker.log_path is None
+
+
+def test_the_default_log_is_made_on_start_and_deleted_on_close(echo):
+    worker = Worker(sys.executable, echo)
+    assert worker.log_path is None
+    worker.call("echo")
+    log = worker.log_path
+    assert "import-time noise" in log.read_text()
+    worker.close()
+    assert not log.exists() and worker.log_path is None
+
+
+def test_an_explicit_log_is_kept(echo, tmp_path):
+    with _worker(echo, tmp_path) as w:
+        w.call("echo")
+    assert (tmp_path / "w.log").exists()
+
+
+def test_host_python_variables_do_not_reach_the_worker(echo, tmp_path, monkeypatch):
     """A leaked PYTHONHOME would not even let the worker start."""
     monkeypatch.setenv("PYTHONPATH", "/host/site-packages-that-must-not-leak")
     monkeypatch.setenv("PYTHONHOME", str(tmp_path / "no-such-home"))
     monkeypatch.setenv("VIRTUAL_ENV", "/host/venv")
-    with Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    ) as w:
-        assert w.call("environ") == {
-            "PYTHONPATH": None,
-            "PYTHONHOME": None,
-            "VIRTUAL_ENV": None,
-        }
+    with _worker(echo, tmp_path) as w:
+        assert w.call("environ") == dict.fromkeys(
+            ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
+        )
 
 
-def test_the_working_directory_shadows_no_import(tmp_path):
-    with Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    ) as w:
+def test_the_path_has_the_adapters_folder_and_not_the_working_directory(echo, tmp_path):
+    with _worker(echo, tmp_path) as w:
         where = w.call("where")
     assert os.listdir(where["cwd"]) == []
-    assert (
-        "" not in where["path"]
-        and str(Path(isolated.__file__).parent) not in where["path"]
+    assert Path(where["path"][0]) == echo.parent
+    assert "" not in where["path"]
+    assert str(Path(isolated.__file__).parent) not in where["path"]
+
+
+def test_adapters_can_share_a_helper_module(tmp_path):
+    (tmp_path / "shared_helper.py").write_text("def double(x): return 2 * x\n")
+    adapter = tmp_path / "h_adapter.py"
+    adapter.write_text(
+        "from shared_helper import double\n"
+        "def load(**kw): return None\n"
+        "def twice(state, x): return double(x)\n"
     )
+    with _worker(adapter, tmp_path) as w:
+        assert w.call("twice", x=21) == 42
 
 
-def test_close_from_another_thread_waits_for_the_call_in_flight(tmp_path):
-    worker = Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
+def test_close_from_another_thread_waits_for_the_call_in_flight(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
+    worker.call("echo")
+    results = []
+    caller = threading.Thread(
+        target=lambda: results.append(worker.call("sleep", seconds=1))
     )
-    in_call, release = threading.Event(), threading.Event()
-
-    def call_in_flight():  # holds the lock as call() does
-        with worker._lock:
-            in_call.set()
-            release.wait(5)
-
-    caller = threading.Thread(target=call_in_flight)
     caller.start()
-    in_call.wait(5)
-    closer = threading.Thread(target=worker.close)
+    time.sleep(0.3)  # the call is in flight
+    # with a short timeout, a close that did not wait would kill the call in flight
+    closer = threading.Thread(target=worker.close, kwargs={"timeout": 0.2})
     closer.start()
-    closer.join(0.2)
-    assert closer.is_alive()  # waiting for the call
-    release.set()
-    closer.join(5)
-    caller.join(5)
-    assert not closer.is_alive()
+    closer.join(0.3)
+    assert closer.is_alive(), "close waits for the call"
+    caller.join(10)
+    closer.join(10)
+    assert results == [{"slept": 1}] and not worker.running
 
 
-def test_a_closed_pipe_is_reported_as_the_worker_exiting(tmp_path):
-    worker = Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    )
+def test_kill_does_not_wait_for_the_call_in_flight(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
+    worker.call("echo")
+    errors = []
+
+    def call():
+        try:
+            worker.call("sleep", seconds=30)
+        except WorkerError as error:
+            errors.append(error)
+
+    caller = threading.Thread(target=call)
+    caller.start()
+    time.sleep(0.3)
+    started = time.monotonic()
+    worker.kill()
+    caller.join(10)
+    assert time.monotonic() - started < 5 and len(errors) == 1
+    assert not worker.running
+
+
+def test_closing_a_stuck_worker_kills_it_after_the_timeout(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
+    worker.call("linger")
+    proc = worker._proc
+    started = time.monotonic()
+    worker.close(timeout=0.5)
+    assert time.monotonic() - started < 5
+    assert proc.poll() is not None and not worker.running
+
+
+def test_a_closed_pipe_is_reported_as_the_worker_exiting(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
     worker.call("echo")
     worker._proc.stdin.close()  # as a close() racing the write would leave it
     with pytest.raises(WorkerError, match="exited"):
@@ -376,10 +474,8 @@ def test_a_closed_pipe_is_reported_as_the_worker_exiting(tmp_path):
     worker.close()
 
 
-def test_a_request_that_cannot_be_serialised_leaves_the_worker_alive(tmp_path):
-    worker = Worker(
-        sys.executable, _adapter(tmp_path, ECHO_ADAPTER), log_path=tmp_path / "w.log"
-    )
+def test_a_request_that_cannot_be_serialised_leaves_the_worker_alive(echo, tmp_path):
+    worker = _worker(echo, tmp_path)
     worker.call("echo")
     circular = {}
     circular["self"] = circular
@@ -389,62 +485,38 @@ def test_a_request_that_cannot_be_serialised_leaves_the_worker_alive(tmp_path):
     worker.close()
 
 
-# Worker: module drivers (arioso's style) --------------------------------------------------
+_HOST_SCRIPT = """\
+import sys, threading, time
+from ps.isolated import Worker
+worker = Worker(sys.executable, sys.argv[1])
+print(worker.call("where")["pid"], flush=True)
+if sys.argv[2] == "in-flight":
+    threading.Thread(target=worker.call, args=("sleep",), kwargs={"seconds": 60}, daemon=True).start()
+    time.sleep(0.5)
+"""
 
 
-def test_module_worker_round_trip_survives_stdout_noise_and_errors(tmp_path):
-    with _module_worker(log_path=tmp_path / "w.log") as w:
-        assert w.call({"a": 1})["echo"] == {"a": 1}
-        with pytest.raises(WorkerError, match="asked to fail"):
-            w.call({"fail": True})
-        assert w.alive, "a failed request must not kill the worker"
-        assert w.call({"b": 2})["echo"] == {"b": 2}
-    assert not w.alive
-    assert "C-level noise on fd 1" in (tmp_path / "w.log").read_text()
-
-
-def test_module_worker_path_holds_only_the_exposed_packages_and_what_was_passed(
-    monkeypatch,
-):
-    monkeypatch.setenv("PYTHONPATH", "/host/site-packages-that-must-not-leak")
-    with _module_worker() as w:
-        reply = w.call({})
-    path = reply["pythonpath"].split(os.pathsep)
-    assert "/host/site-packages-that-must-not-leak" not in path
-    assert path[-1] == TESTS_DIR
-    assert os.listdir(path[0]) == ["ps"]
-    assert Path(reply["ps_file"]).parent.parent == Path(path[0]), (
-        "ps came from the exposed dir"
+@pytest.mark.parametrize("state", ["idle", "in-flight"])
+def test_the_host_exits_and_takes_its_workers_with_it(echo, tmp_path, state):
+    """At exit every worker is killed, even with a daemon thread inside call()."""
+    script = tmp_path / "host.py"
+    script.write_text(_HOST_SCRIPT)
+    started = time.monotonic()
+    out = subprocess.run(
+        [sys.executable, str(script), str(echo), state],
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
-
-
-def test_module_worker_reports_a_driver_that_dies_with_its_log(tmp_path):
-    with _module_worker(log_path=tmp_path / "w.log") as w:
-        with pytest.raises(WorkerError, match="(?s)exited.*dying clue"):
-            w.call({"die": True})
-
-
-def test_a_missing_driver_module_is_reported():
-    with pytest.raises(WorkerError, match="(?s)exited.*No module named"):
-        Worker(sys.executable, "ps_no_such_driver_module").call({})
-
-
-def test_exposing_copies_when_symlinks_are_not_allowed(monkeypatch):
-    def refuse(*a, **k):
-        raise OSError("no symlink rights")
-
-    monkeypatch.setattr(Path, "symlink_to", refuse)
-    monkeypatch.setattr(isolated, "_EXPOSED_DIRS", {})
-    base = Path(isolated._exposed_dir([ps]))
-    assert os.listdir(base) == ["ps"] and not (base / "ps").is_symlink()
-    assert (base / "ps" / "isolated.py").read_text() == Path(
-        isolated.__file__
-    ).read_text()
-    assert not (base / "ps" / "__pycache__").exists()
+    assert out.returncode == 0, out.stderr
+    assert time.monotonic() - started < 20
+    pid = int(out.stdout.split()[0])
+    if os.name != "nt":
+        assert _wait_dead(pid), "the worker outlived its host"
 
 
 class _FakeProc:
-    """A worker process whose reply is scripted (a line, or an exception from readline)."""
+    """A worker process whose replies are scripted (a line, or an exception)."""
 
     def __init__(self, reply):
         self.stdin, self.killed = io.StringIO(), False
@@ -478,15 +550,13 @@ def test_an_interrupted_or_garbled_exchange_kills_the_worker(reply, error, tmp_p
     procs = []
     w = Worker(
         "python",
-        "m",
-        log_path=tmp_path / "w.log",
+        "m_adapter.py",
+        stderr=tmp_path / "w.log",
         spawn=lambda *a, **k: procs.append(_FakeProc(reply)) or procs[-1],
     )
     with pytest.raises(error):
-        w.call({"x": 1})
-    assert procs[0].killed and not w.alive, (
-        "a stale reply must never be read by the next call"
-    )
+        w.call("x")
+    assert procs[0].killed and not w.running, "a stale reply must never be read next"
 
 
 def test_spawn_gets_the_command_and_a_clean_environment(tmp_path, monkeypatch):
@@ -499,55 +569,26 @@ def test_spawn_gets_the_command_and_a_clean_environment(tmp_path, monkeypatch):
 
     w = Worker(
         "py",
-        "drv.mod",
+        "a_adapter.py",
+        init={"size": "s"},
         env={"X": "1"},
         cwd=tmp_path,
-        log_path=tmp_path / "w.log",
+        stderr=tmp_path / "w.log",
         spawn=spawn,
     )
-    assert w.call({}) == 7
+    assert w.call("op") == 7
     argv, kwargs = seen[0]
-    assert argv == ["py", "-u", "-m", "drv.mod"]
+    assert argv[:3] == ["py", "-u", "-c"]
+    assert argv[-2:] == [isolated.__file__, "a_adapter.py"]
     assert kwargs["cwd"] == str(tmp_path) and kwargs["env"]["X"] == "1"
     assert "PYTHONPATH" not in kwargs["env"]
+    assert json.loads(w._proc.stdin.getvalue().splitlines()[0]) == {
+        "op": "load",
+        "size": "s",
+    }
 
 
-# WorkerPool -------------------------------------------------------------------------------
-
-
-def test_worker_pool_makes_each_worker_once_across_threads():
-    made, closed = [], []
-
-    class FakeWorker:
-        def __init__(self, key):
-            self.key = key
-
-        def close(self):
-            closed.append(self.key)
-
-    def make(model, threads=None):
-        made.append((model, threads))
-        time.sleep(0.05)  # an env build: two unguarded threads would both run it
-        return FakeWorker((model, threads))
-
-    pool = WorkerPool(make)
-    got = []
-    threads = [
-        threading.Thread(target=lambda: got.append(pool.get("base"))) for _ in range(4)
-    ]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
-    assert len(made) == 1 and len({id(w) for w in got}) == 1
-    assert pool.get("small", threads=2) is not got[0]
-    pool.close()
-    assert sorted(closed) == [("base", None), ("small", 2)]
-    pool.get("base")
-    assert len(made) == 3  # a fresh worker after close
-
-
-# run_process ------------------------------------------------------------------------------
+# run_process ----------------------------------------------------------------------------
 
 
 def test_run_process_interleaves_output_and_cleans_the_environment(
@@ -557,22 +598,39 @@ def test_run_process_interleaves_output_and_cleans_the_environment(
     code = (
         "import os, sys\n"
         "print('out', flush=True); print('err', file=sys.stderr, flush=True)\n"
-        "print(os.environ.get('PYTHONPATH'), os.environ.get('MINE'), os.getcwd(), flush=True)\n"
+        "print(os.environ.get('PYTHONPATH'), os.environ.get('MINE'), flush=True)\n"
+        "print(os.getcwd(), flush=True)\n"
         "sys.exit(2)"
     )
     returncode, output = run_process(
         [sys.executable, "-c", code], cwd=tmp_path, env={"MINE": "1"}
     )
-    assert returncode == 2
     lines = output.splitlines()
-    assert lines[:2] == ["out", "err"]
-    assert lines[2].split(" ", 2)[:2] == ["None", "1"]
-    assert Path(lines[2].split(" ", 2)[2]).resolve() == tmp_path.resolve()
+    assert returncode == 2 and lines[:3] == ["out", "err", "None 1"]
+    assert Path(lines[3]).resolve() == tmp_path.resolve()
 
 
-def test_run_process_kills_on_timeout():
+def test_run_process_raises_timeout_expired():
     with pytest.raises(subprocess.TimeoutExpired):
         run_process([sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.5)
+
+
+@posix_only
+def test_run_process_timeout_kills_the_grandchildren_too(tmp_path):
+    pid_file = tmp_path / "grandchild.pid"
+    code = textwrap.dedent(
+        """
+        import subprocess, sys, time
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+        open(sys.argv[1], "w").write(str(child.pid))
+        time.sleep(60)
+        """
+    )
+    started = time.monotonic()
+    with pytest.raises(subprocess.TimeoutExpired):
+        run_process([sys.executable, "-c", code, pid_file], timeout=1)
+    assert time.monotonic() - started < 10
+    assert _wait_dead(int(pid_file.read_text())), "the grandchild survived"
 
 
 def test_clean_environ_defaults_to_this_process(monkeypatch):
