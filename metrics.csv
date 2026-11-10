@@ -1,26 +1,26 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:49:35.949029Z
-commit_sha,c1c235884b542d0cb22b9399aff8e7fa5a0719c8
-commit_message,Merge 8569a86d06055ef9a3dba45a9b976bb032f7bcce into 25b9e38f04ec0e31c9dfe7be7ed7411291147b5c
+timestamp,2026-11-10T14:56:59.665216Z
+commit_sha,7194a6d5b77a53c2ab934eb6efe2e6291f09331b
+commit_message,"env cli: ValueError for unknown names, status catches only a failing spec, build= may ignore its folder"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4561
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204506
-metrics.umpyre_stats.empty_lines,23145
-metrics.umpyre_stats.comment_lines,10867
-metrics.umpyre_stats.docs_lines,15389
-metrics.umpyre_stats.function_lines,73426
-metrics.umpyre_stats.empty_lines_ratio,0.11317516356488318
-metrics.umpyre_stats.comment_lines_ratio,0.05313780524776779
-metrics.umpyre_stats.function_lines_ratio,0.3590408105385661
-metrics.umpyre_stats.mean_lines_per_function,16.09866257399693
-metrics.umpyre_stats.files_analyzed,522
-metrics.umpyre_stats.pypi_version,0.1.18
+metrics.umpyre_stats.num_functions,4864
+metrics.umpyre_stats.num_classes,1327
+metrics.umpyre_stats.total_lines,210894
+metrics.umpyre_stats.empty_lines,24194
+metrics.umpyre_stats.comment_lines,11300
+metrics.umpyre_stats.docs_lines,16315
+metrics.umpyre_stats.function_lines,77901
+metrics.umpyre_stats.empty_lines_ratio,0.11472113952981118
+metrics.umpyre_stats.comment_lines_ratio,0.05358142004988288
+metrics.umpyre_stats.function_lines_ratio,0.3693846197615864
+metrics.umpyre_stats.mean_lines_per_function,16.015830592105264
+metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.pypi_version,0.1.17
 metrics.workflow_status.last_run_status,success
-metrics.workflow_status.last_success_timestamp,2026-11-10T14:47:46Z
+metrics.workflow_status.last_success_timestamp,2026-11-10T14:49:44Z
 metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42837494652
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42837806184
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -33,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.392538547515869
+collection_duration_seconds,2.5114099979400635
