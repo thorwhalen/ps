@@ -1,0 +1,47 @@
+{
+  "collection_duration_seconds": 3.0027408599853516,
+  "commit_message": "Merge 7194a6d5b77a53c2ab934eb6efe2e6291f09331b into 25b9e38f04ec0e31c9dfe7be7ed7411291147b5c",
+  "commit_sha": "b576193c7570f7d647b52c98703357b88ab40e73",
+  "metrics": {
+    "coverage": {
+      "branch_coverage": 0.0,
+      "error": "No coverage file found",
+      "line_coverage": 0.0,
+      "statements_covered": 0,
+      "statements_total": 0
+    },
+    "umpyre_stats": {
+      "comment_lines": 11300,
+      "comment_lines_ratio": 0.05358142004988288,
+      "docs_lines": 16315,
+      "empty_lines": 24194,
+      "empty_lines_ratio": 0.11472113952981118,
+      "files_analyzed": 533,
+      "function_lines": 77901,
+      "function_lines_ratio": 0.3693846197615864,
+      "mean_lines_per_function": 16.015830592105264,
+      "num_classes": 1327,
+      "num_functions": 4864,
+      "pypi_version": "0.1.18",
+      "total_lines": 210894
+    },
+    "wily": {
+      "cyclomatic_avg": 0.0,
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
+      "files_analyzed": 0,
+      "maintainability_index": 0.0,
+      "total_loc": 0
+    },
+    "workflow_status": {
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-11-10T14:49:44Z",
+      "recent_failure_count": 2,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42837806184",
+      "total_runs_analyzed": 10
+    }
+  },
+  "python_version": "3.10",
+  "schema_version": "1.0",
+  "timestamp": "2026-11-10T14:57:12.160717Z",
+  "workflow_status": {}
+}
