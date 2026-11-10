@@ -238,7 +238,11 @@ def kill_process_tree(process):
             tree = first
             try:
                 _signal_tree(first, signal.SIGSTOP, own_group=own)
-                tree = [p for p in dict.fromkeys(first + descendants(process.pid)) if p != me]
+                tree = [
+                    p
+                    for p in dict.fromkeys(first + descendants(process.pid))
+                    if p != me
+                ]
             finally:  # whatever happens, nothing is left stopped
                 _signal_tree(tree, signal.SIGKILL, own_group=own)
         if not reaped or not _pid_alive(process.pid):
