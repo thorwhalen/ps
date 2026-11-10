@@ -1,8 +1,13 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T20:18:25.378827Z
-commit_sha,eb73a0b0d9536271e1529fbf8c8d38cbac36d7ac
-commit_message,Merge a0051ee8200ed9ecff1fe0a2d003df2cd5521174 into 4fcd0f8a95c0bac610f6af12f37c9b2d8ed8092c
+timestamp,2026-11-10T20:18:27.471839Z
+commit_sha,a0051ee8200ed9ecff1fe0a2d003df2cd5521174
+commit_message,"wait_and_reap: review fixes
+
+Reap on any exception (Ctrl-C does not reach a child in its own session); bounded
+wait after the kill; (pid, start time) pairs read every pass; no watch thread on
+Windows; interval validated; tests for the interrupted wait and for a worker in
+the caller's own group; the timeout test waits for its pidfile first."
 python_version,3.10
 metrics.umpyre_stats.num_functions,4875
 metrics.umpyre_stats.num_classes,1327
@@ -33,4 +38,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.4072248935699463
+collection_duration_seconds,2.9321680068969727
