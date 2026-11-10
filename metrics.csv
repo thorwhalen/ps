@@ -1,104 +1,39 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T10:44:32.731809Z
-commit_sha,4eb6c3e2d2dbb2c3b18806f0cfba763ee4205aa6
-commit_message,"Add ps.isolated: run Python code inside another Python environment (#12)
-
-* Add ps.isolated: run Python code inside another Python environment
-
-One stdlib-only module merging the copies of this mechanism in arioso
-(_isolated), voxy (envs, worker, workers/serve.py) and foley (the one-shot
-runner of its stable_audio_3 source):
-
-- Runtime: where a hand-installed environment lives ($<env_var>, else
-  $<base_dir_var>/<name>, else <default_dir>/<name>); RuntimeNotInstalled
-  carries the install commands.
-- EnvSpec + ensure_env/is_env_ready/env_commands: uv-built environments
-  with a digest marker (a changed spec rebuilds; host UV_CONSTRAINT cleared).
-- Worker: a long-lived JSON-lines process; module drivers (python -m, with
-  expose= for the packages it may import) or adapter files (loaded by this
-  module standalone, so the environment needs no ps). stderr to a log whose
-  tail goes into errors; failed load stops it; an interrupted or garbled
-  exchange kills it; host PYTHONPATH/PYTHONHOME/VIRTUAL_ENV never passed.
-- WorkerPool, serve, serve_adapter, adapter_handler, run_process,
-  venv_python (POSIX or Windows layout), clean_environ.
-
-Refs thorwhalen/arioso#56
-
-* Doctest: match ls's help case-insensitively (uutils coreutils on ubuntu-26.04 capitalises it)
-
-* ps.isolated: adapter files only, smaller surface, review fixes
-
-Decisions (review of this PR): one driver style, adapter files; WorkerPool
-stays with its one customer (voxy); no build=False / env_commands / uv= /
-adapter_handler / serve(handle) / expose.
-
-Fixes:
-- Worker.kill() takes no lock and is what runs at exit, so a host exits
-  even with a daemon thread inside call(); tested with a real host process.
-- A stale environment is removed and rebuilt (a changed Python or a dropped
-  requirement takes effect); a folder that is not a venv is never removed.
-- stderr= seam: a log file (default: temporary, made on start, deleted on
-  close) or None for the host's terminal; the log tail is read by seeking.
-- serve_adapter puts the adapter's folder on sys.path (shared helpers).
-- run_process kills the whole process tree on timeout (ps.util gains
-  kill_process_tree and NEW_PROCESS_GROUP); still raises TimeoutExpired.
-- UV_OVERRIDE and UV_BUILD_CONSTRAINT are cleared with UV_CONSTRAINT, and the
-  build notice shows the commands with them cleared.
-- Only None results become {}.
-- ps/__init__ resolves commands lazily (PEP 562): import ps and its
-  submodules no longer scan PATH; ps.<cmd>, from ps import <cmd> and dir(ps)
-  still work.
-
-Refs thorwhalen/arioso#56
-
-* tests: Windows-safe fake install names; log tail may end in CRLF
-
-* ps.isolated: only rebuild environments ps built; workers lead their own process group
-
-- ensure_env deletes a stale environment only when it holds ps's marker
-  (a provisional one is written right after `uv venv`, so a half-built env
-  still counts as ps's); a non-empty folder without it raises, and the
-  running interpreter's own environment is never replaced.
-- Workers start in their own process group; stopping one kills what it
-  spawned (a forked data loader), and kill() closes stdin only, so exit no
-  longer waits on a child holding the reply pipe.
-- kill_process_tree kills the POSIX group even when the leader already
-  exited; documents what Windows taskkill /T cannot reach.
-- ps/__init__: lazy __all__ for `from ps import *`, a locked first scan,
-  submodule guard from pkgutil; README notes the __dict__ change.
-- Docs: exit-time kill only helps daemon threads; process-group children
-  leave the terminal's group.
-
-Refs thorwhalen/arioso#56"
+timestamp,2026-11-10T11:13:27.263754Z
+commit_sha,30c65173a30fd534a92c7e30765234628dc9f8b4
+commit_message,Merge 4c89bd5cec39887cab5961c2b495631bda16702b into 4a647d865754c533cf0abcdaf7d0203cb46ed0b1
 python_version,3.10
 metrics.umpyre_stats.num_functions,4538
 metrics.umpyre_stats.num_classes,1264
-metrics.umpyre_stats.total_lines,203810
+metrics.umpyre_stats.total_lines,203813
 metrics.umpyre_stats.empty_lines,23059
-metrics.umpyre_stats.comment_lines,10849
-metrics.umpyre_stats.docs_lines,15232
-metrics.umpyre_stats.function_lines,72858
-metrics.umpyre_stats.empty_lines_ratio,0.11313968892596045
-metrics.umpyre_stats.comment_lines_ratio,0.05323095039497571
-metrics.umpyre_stats.function_lines_ratio,0.35748000588783674
-metrics.umpyre_stats.mean_lines_per_function,16.055090348171
+metrics.umpyre_stats.comment_lines,10850
+metrics.umpyre_stats.docs_lines,15233
+metrics.umpyre_stats.function_lines,72860
+metrics.umpyre_stats.empty_lines_ratio,0.11313802358043894
+metrics.umpyre_stats.comment_lines_ratio,0.053235073327020356
+metrics.umpyre_stats.function_lines_ratio,0.3574845569222768
+metrics.umpyre_stats.mean_lines_per_function,16.05553107095637
 metrics.umpyre_stats.files_analyzed,522
-metrics.umpyre_stats.pypi_version,0.1.14
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-10T10:42:53Z
+metrics.umpyre_stats.pypi_version,0.1.15
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T10:45:41Z
 metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42801529270
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42801765468
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
 metrics.wily.total_loc,0
 metrics.wily.files_analyzed,0
-metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
+metrics.wily.error,"wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...
+Try 'wily report --help' for help.
+
+Error: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.
 "
 metrics.coverage.line_coverage,0.0
 metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.4827675819396973
+collection_duration_seconds,2.3377647399902344
