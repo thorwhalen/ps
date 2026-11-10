@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 3.2101078033447266,
-  "commit_message": "ps.isolated: Worker resolves a relative adapter path against the host's directory (#14)\n\nThe worker runs in another directory (an empty temporary one by default), so a\nrelative adapter path given by the host would not be found there.",
-  "commit_sha": "bb0df41e92c24a700a192e80cb8b2105b5dd4016",
+  "collection_duration_seconds": 2.033012866973877,
+  "commit_message": "Merge 5a5408a86274aadacd76ef3eb330f5e9c1a2141f into 5662cf2f7a2233acd77d6155cf40140e5d107e49",
+  "commit_sha": "7e8deb704841de910797a44f192f09c92356f2a3",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,37 +11,37 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10850,
-      "comment_lines_ratio": 0.053235073327020356,
-      "docs_lines": 15233,
-      "empty_lines": 23059,
-      "empty_lines_ratio": 0.11313802358043894,
+      "comment_lines": 10854,
+      "comment_lines_ratio": 0.05319753764115433,
+      "docs_lines": 15290,
+      "empty_lines": 23090,
+      "empty_lines_ratio": 0.1131685225846926,
       "files_analyzed": 522,
-      "function_lines": 72860,
-      "function_lines_ratio": 0.3574845569222768,
-      "mean_lines_per_function": 16.05553107095637,
-      "num_classes": 1264,
-      "num_functions": 4538,
-      "pypi_version": "0.1.15",
-      "total_lines": 203813
+      "function_lines": 73017,
+      "function_lines_ratio": 0.35787033406524466,
+      "mean_lines_per_function": 16.065346534653465,
+      "num_classes": 1266,
+      "num_functions": 4545,
+      "pypi_version": "0.1.16",
+      "total_lines": 204032
     },
     "wily": {
       "cyclomatic_avg": 0.0,
-      "error": "wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...\nTry 'wily report --help' for help.\n\nError: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.\n",
+      "error": "wily build failed: \u001b[31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'\u001b[0m\n",
       "files_analyzed": 0,
       "maintainability_index": 0.0,
       "total_loc": 0
     },
     "workflow_status": {
-      "last_run_status": "failure",
-      "last_success_timestamp": "2026-11-10T11:13:35Z",
-      "recent_failure_count": 3,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42806313913",
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-11-10T11:20:36Z",
+      "recent_failure_count": 4,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/42806546394",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-10T11:19:09.375109Z",
+  "timestamp": "2026-11-10T14:12:02.780504Z",
   "workflow_status": {}
 }
