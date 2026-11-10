@@ -1,30 +1,26 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T14:45:27.692860Z
-commit_sha,e4861c4518199b7bcb7d276f874e90316b48eb45
-commit_message,"kill_process_tree reaches workers in their own sessions; reused-pid guard; descendants(); Worker python abspath (#21)
-
-* kill_process_tree reaches processes in sessions of their own, spares the caller's group, and leaves a reused pid alone; descendants(); Worker resolves a relative python (#16, #13)
-
-* tree kill review fixes: nothing left stopped if the second read fails, the caller never signals itself, pid/group <= 1 refused, libproc loaded once, limits documented; tests for the second read, several children, EPERM, own group run in a subprocess"
+timestamp,2026-11-10T14:47:34.125841Z
+commit_sha,8569a86d06055ef9a3dba45a9b976bb032f7bcce
+commit_message,"env cli: drop the mounted-parser API for build_envs/env_status (voxy calls build_envs), build prints bare interpreters (denote's output), names required, compile_lock takes torch_backend, hashed lines refused"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4555
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204281
-metrics.umpyre_stats.empty_lines,23116
-metrics.umpyre_stats.comment_lines,10863
-metrics.umpyre_stats.docs_lines,15314
-metrics.umpyre_stats.function_lines,73226
-metrics.umpyre_stats.empty_lines_ratio,0.1131578560903853
-metrics.umpyre_stats.comment_lines_ratio,0.05317675163133135
-metrics.umpyre_stats.function_lines_ratio,0.3584572231387158
-metrics.umpyre_stats.mean_lines_per_function,16.07596048298573
-metrics.umpyre_stats.files_analyzed,522
+metrics.umpyre_stats.num_functions,4864
+metrics.umpyre_stats.num_classes,1327
+metrics.umpyre_stats.total_lines,210889
+metrics.umpyre_stats.empty_lines,24194
+metrics.umpyre_stats.comment_lines,11300
+metrics.umpyre_stats.docs_lines,16314
+metrics.umpyre_stats.function_lines,77896
+metrics.umpyre_stats.empty_lines_ratio,0.11472385947109617
+metrics.umpyre_stats.comment_lines_ratio,0.05358269042007881
+metrics.umpyre_stats.function_lines_ratio,0.3693696684037574
+metrics.umpyre_stats.mean_lines_per_function,16.01480263157895
+metrics.umpyre_stats.files_analyzed,533
 metrics.umpyre_stats.pypi_version,0.1.17
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-10T14:45:04Z
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T14:46:55Z
 metrics.workflow_status.recent_failure_count,2
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42837102493
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42837437234
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -37,4 +33,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,3.1945133209228516
+collection_duration_seconds,2.190467357635498
