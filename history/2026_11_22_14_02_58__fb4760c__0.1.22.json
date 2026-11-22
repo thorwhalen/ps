@@ -1,0 +1,47 @@
+{
+  "collection_duration_seconds": 2.87912917137146,
+  "commit_message": "Windows reaping: review fixes\n\n- _kernel32 built once (lru_cache): a ctypes struct per call grew the\n  pointer-type cache without bound (~1 GB/hour under the watcher).\n- descendants visits each pid once (recorded parents can cycle).\n- Survivors are terminated by handle after their start time is checked\n  on that handle; no taskkill /T, which follows recycled parent pids.\n- Windows test: gone means a different start time (pids are reused\n  quickly); the worker's start time is read while it runs.",
+  "commit_sha": "fb4760c849231ee4a19c45aa1be7896699c25594",
+  "metrics": {
+    "coverage": {
+      "branch_coverage": 0.0,
+      "error": "No coverage file found",
+      "line_coverage": 0.0,
+      "statements_covered": 0,
+      "statements_total": 0
+    },
+    "umpyre_stats": {
+      "comment_lines": 11309,
+      "comment_lines_ratio": 0.05352992686909805,
+      "docs_lines": 16395,
+      "empty_lines": 24254,
+      "empty_lines_ratio": 0.1148036825787518,
+      "files_analyzed": 533,
+      "function_lines": 78281,
+      "function_lines_ratio": 0.37053463659385133,
+      "mean_lines_per_function": 16.034616960262188,
+      "num_classes": 1328,
+      "num_functions": 4882,
+      "pypi_version": "0.1.22",
+      "total_lines": 211265
+    },
+    "wily": {
+      "cyclomatic_avg": 0.0,
+      "error": "wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...\nTry 'wily report --help' for help.\n\nError: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.\n",
+      "files_analyzed": 0,
+      "maintainability_index": 0.0,
+      "total_loc": 0
+    },
+    "workflow_status": {
+      "last_run_status": "success",
+      "last_success_timestamp": "2026-11-22T13:50:12Z",
+      "recent_failure_count": 2,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/45029438632",
+      "total_runs_analyzed": 10
+    }
+  },
+  "python_version": "3.10",
+  "schema_version": "1.0",
+  "timestamp": "2026-11-22T14:02:57.759690Z",
+  "workflow_status": {}
+}
