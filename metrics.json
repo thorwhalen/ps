@@ -1,5 +1,5 @@
 {
-  "collection_duration_seconds": 2.5764811038970947,
+  "collection_duration_seconds": 2.939544200897217,
   "commit_message": "wait_and_reap on Windows: read the tree, kill the survivors (#26)\n\n* wait_and_reap on Windows: read the tree, kill the survivors\n\ndescendants() reads the Windows process table (one Toolhelp snapshot;\na child created before its recorded parent is a recycled pid, not a\nchild), start_time() uses GetProcessTimes (None once exited), and\nwait_and_reap watches the tree on Windows too and kills survivors with\ntaskkill /T. Windows-only tests in tests/test_windows_tree.py.\n\nCloses #25\n\n* Windows reaping: review fixes\n\n- _kernel32 built once (lru_cache): a ctypes struct per call grew the\n  pointer-type cache without bound (~1 GB/hour under the watcher).\n- descendants visits each pid once (recorded parents can cycle).\n- Survivors are terminated by handle after their start time is checked\n  on that handle; no taskkill /T, which follows recycled parent pids.\n- Windows test: gone means a different start time (pids are reused\n  quickly); the worker's start time is read while it runs.",
   "commit_sha": "88407fe6dab0c18d5e0c0594d725aa92ee3fc663",
   "metrics": {
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 11309,
-      "comment_lines_ratio": 0.05352992686909805,
-      "docs_lines": 16395,
-      "empty_lines": 24254,
-      "empty_lines_ratio": 0.1148036825787518,
-      "files_analyzed": 533,
-      "function_lines": 78281,
-      "function_lines_ratio": 0.37053463659385133,
-      "mean_lines_per_function": 16.034616960262188,
-      "num_classes": 1328,
-      "num_functions": 4882,
+      "comment_lines": 10899,
+      "comment_lines_ratio": 0.05317571061952947,
+      "docs_lines": 15475,
+      "empty_lines": 23210,
+      "empty_lines_ratio": 0.11324050311765108,
+      "files_analyzed": 522,
+      "function_lines": 73878,
+      "function_lines_ratio": 0.3604473024267913,
+      "mean_lines_per_function": 16.13056768558952,
+      "num_classes": 1267,
+      "num_functions": 4580,
       "pypi_version": "0.1.22",
-      "total_lines": 211265
+      "total_lines": 204962
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -42,6 +42,6 @@
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-22T14:05:09.373653Z",
+  "timestamp": "2026-11-22T14:05:10.820741Z",
   "workflow_status": {}
 }
