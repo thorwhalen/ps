@@ -1,52 +1,47 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-10T20:20:41.733523Z
-commit_sha,ec4f9b1fb9e527ce2c4f88c87fbe52dafffb4172
-commit_message,"wait_and_reap: kill what a process started however it ends; start_time (#24)
+timestamp,2026-11-22T13:49:58.757634Z
+commit_sha,0979af4fde0a7c455aa8bfbb4d6044afbc03e7fa
+commit_message,"wait_and_reap on Windows: read the tree, kill the survivors
 
-* wait_and_reap: kill what a process started however it ends; start_time
+descendants() reads the Windows process table (one Toolhelp snapshot;
+a child created before its recorded parent is a recycled pid, not a
+child), start_time() uses GetProcessTimes (None once exited), and
+wait_and_reap watches the tree on Windows too and kills survivors with
+taskkill /T. Windows-only tests in tests/test_windows_tree.py.
 
-kill_process_tree reads the tree below a live process, so a process that exits on
-its own (a crash, or between a timeout and the kill) leaves its re-parented
-workers running. wait_and_reap watches the tree while waiting and, after any
-exit, kills the descendants it saw that are still the same processes (start
-time), plus orphans in the process's own group. First customer: arioso compare
-(thorwhalen/arioso#67).
-
-* wait_and_reap: review fixes
-
-Reap on any exception (Ctrl-C does not reach a child in its own session); bounded
-wait after the kill; (pid, start time) pairs read every pass; no watch thread on
-Windows; interval validated; tests for the interrupted wait and for a worker in
-the caller's own group; the timeout test waits for its pidfile first."
+Closes #25"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4572
-metrics.umpyre_stats.num_classes,1266
-metrics.umpyre_stats.total_lines,204743
-metrics.umpyre_stats.empty_lines,23185
-metrics.umpyre_stats.comment_lines,10870
-metrics.umpyre_stats.docs_lines,15451
-metrics.umpyre_stats.function_lines,73673
-metrics.umpyre_stats.empty_lines_ratio,0.11323952467239418
-metrics.umpyre_stats.comment_lines_ratio,0.053090948164284
-metrics.umpyre_stats.function_lines_ratio,0.359831593754121
-metrics.umpyre_stats.mean_lines_per_function,16.113954505686788
+metrics.umpyre_stats.num_functions,4578
+metrics.umpyre_stats.num_classes,1267
+metrics.umpyre_stats.total_lines,204936
+metrics.umpyre_stats.empty_lines,23205
+metrics.umpyre_stats.comment_lines,10898
+metrics.umpyre_stats.docs_lines,15464
+metrics.umpyre_stats.function_lines,73859
+metrics.umpyre_stats.empty_lines_ratio,0.11323047195221923
+metrics.umpyre_stats.comment_lines_ratio,0.05317757739001444
+metrics.umpyre_stats.function_lines_ratio,0.3604003200999336
+metrics.umpyre_stats.mean_lines_per_function,16.133464394932286
 metrics.umpyre_stats.files_analyzed,522
-metrics.umpyre_stats.pypi_version,0.1.21
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-10T20:18:41Z
+metrics.umpyre_stats.pypi_version,0.1.22
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-10T20:21:48Z
 metrics.workflow_status.recent_failure_count,3
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42894110619
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/42894438550
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
 metrics.wily.total_loc,0
 metrics.wily.files_analyzed,0
-metrics.wily.error,"wily build failed: [31mFailed to setup archiver: 'Dirty repository, make sure you commit/stash files first'[0m
+metrics.wily.error,"wily report failed: Usage: wily report [OPTIONS] FILE [METRICS]...
+Try 'wily report --help' for help.
+
+Error: Invalid value for '-f' / '--format': 'json' is not one of 'CONSOLE', 'HTML'.
 "
 metrics.coverage.line_coverage,0.0
 metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.8842897415161133
+collection_duration_seconds,2.308304786682129
