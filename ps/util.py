@@ -1,5 +1,6 @@
 """Utils"""
 
+import functools
 import os
 import re
 from math import isinf, isnan
@@ -159,10 +160,16 @@ def _darwin_start_time(pid: int):
 _TH32CS_SNAPPROCESS = 0x2
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 _STILL_ACTIVE = 259
+_PROCESS_TERMINATE = 0x0001
 
 
+@functools.lru_cache(maxsize=None)
 def _kernel32():
-    """kernel32 with the signatures used here (Windows only)."""
+    """kernel32 with the signatures used here (Windows only).
+
+    Built once: a new ctypes struct (and ``POINTER`` to it) per call would grow
+    ctypes' pointer-type cache for the life of the process.
+    """
     import ctypes
     from ctypes import wintypes
 
@@ -194,6 +201,8 @@ def _kernel32():
     k.GetProcessTimes.restype = wintypes.BOOL
     k.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
     k.GetExitCodeProcess.restype = wintypes.BOOL
+    k.TerminateProcess.argtypes = [wintypes.HANDLE, wintypes.UINT]
+    k.TerminateProcess.restype = wintypes.BOOL
     k.CloseHandle.argtypes = [wintypes.HANDLE]
     return ctypes, wintypes, k, PROCESSENTRY32W
 
@@ -220,24 +229,42 @@ def _windows_children_map() -> dict:
     return tree
 
 
+def _windows_created(handle):
+    """Creation time (100 ns ticks) of the live process behind ``handle``, else ``None``."""
+    ctypes, wintypes, k, _ = _kernel32()
+    code = wintypes.DWORD()
+    if k.GetExitCodeProcess(handle, ctypes.byref(code)) and code.value != _STILL_ACTIVE:
+        return None  # exited; someone still holds a handle to it
+    times = [wintypes.FILETIME() for _ in range(4)]
+    if not k.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+        return None
+    created = times[0]
+    return (created.dwHighDateTime << 32) | created.dwLowDateTime
+
+
 def _windows_start_time(pid: int):
     """Process creation time (100 ns ticks), or ``None`` if gone or not readable."""
-    ctypes, wintypes, k, _ = _kernel32()
+    _ctypes, _wintypes, k, _ = _kernel32()
     handle = k.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
     if not handle:
         return None
     try:
-        code = wintypes.DWORD()
-        if (
-            k.GetExitCodeProcess(handle, ctypes.byref(code))
-            and code.value != _STILL_ACTIVE
-        ):
-            return None  # exited; someone still holds a handle to it
-        times = [wintypes.FILETIME() for _ in range(4)]
-        if not k.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
-            return None
-        created = times[0]
-        return (created.dwHighDateTime << 32) | created.dwLowDateTime
+        return _windows_created(handle)
+    finally:
+        k.CloseHandle(handle)
+
+
+def _windows_terminate(pid: int, started) -> None:
+    """Terminate ``pid`` if it is still the process that started at ``started``,
+    checked on the handle that kills it, so a recycled pid is never hit."""
+    _ctypes, _wintypes, k, _ = _kernel32()
+    access = _PROCESS_TERMINATE | _PROCESS_QUERY_LIMITED_INFORMATION
+    handle = k.OpenProcess(access, False, int(pid))
+    if not handle:
+        return
+    try:
+        if _windows_created(handle) == started:
+            k.TerminateProcess(handle, 1)
     finally:
         k.CloseHandle(handle)
 
@@ -335,9 +362,11 @@ def descendants(pid=None) -> list:
 
     else:
         return []
-    found, frontier = [], [pid]
+    found, frontier, visited = [], [pid], {pid}
     while frontier:
-        kids = children(frontier.pop(0))
+        # Recorded parent pids can form a cycle after pid reuse: visit each once.
+        kids = [kid for kid in children(frontier.pop(0)) if kid not in visited]
+        visited.update(kids)
         found += kids
         frontier += kids
     return found
@@ -451,22 +480,18 @@ def _kill_trees(roots) -> None:
         _signal_tree(everything, signal.SIGKILL, own_group=own)
 
 
-def _kill_survivors(pids) -> None:
-    """Kill ``pids`` and what they started: groups on POSIX, ``taskkill /T`` on Windows."""
-    if os.name != "nt":
-        _kill_trees(pids)
-        return
-    from subprocess import DEVNULL, call
+def _kill_survivors(survivors) -> None:
+    """Kill the ``(pid, start time)`` survivors and what they started.
 
-    for pid in pids:
-        try:
-            call(
-                ["taskkill", "/F", "/T", "/PID", str(pid)],
-                stdout=DEVNULL,
-                stderr=DEVNULL,
-            )
-        except OSError:
-            pass
+    On POSIX, their trees and the groups they lead. On Windows, each by handle after
+    checking its start time on that handle: ``taskkill /T`` would follow recorded
+    parent pids into recycled ones, and the watcher's record already holds the tree.
+    """
+    if os.name != "nt":
+        _kill_trees([pid for pid, _ in survivors])
+        return
+    for pid, started in survivors:
+        _windows_terminate(pid, started)
 
 
 def wait_and_reap(process, *, timeout=None, interval=0.25):
@@ -491,9 +516,10 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
     Limits: a descendant that starts and is orphaned within one ``interval`` is not
     seen (only its group, if it stayed in ``process``'s); a process whose start time
     cannot be read (another user's: one started through ``sudo``, say) is never killed
-    as a survivor. On Windows the tree is read from the process table and survivors
-    are killed with ``taskkill /T``; there is no process group to reach orphans the
-    watcher never saw.
+    as a survivor. On Windows the tree is read from the process table, and below a
+    process only while its start time can be read; each survivor is terminated by
+    handle after its start time is checked again. There is no process group there to
+    reach orphans the watcher never saw.
 
     >>> import subprocess, sys
     >>> child = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_PROCESS_GROUP)
@@ -528,7 +554,7 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
     def reap():
         stop.set()
         watcher.join()
-        survivors = [pid for pid, started in seen if start_time(pid) == started]
+        survivors = [(pid, t) for pid, t in seen if start_time(pid) == t]
         if survivors:
             _kill_survivors(survivors)
         kill_process_tree(process)  # orphans in its group; ``process`` if still alive
