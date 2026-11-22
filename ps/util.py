@@ -154,23 +154,114 @@ def _darwin_start_time(pid: int):
     return struct.unpack_from("QQ", buf.raw, _BSDINFO_START)
 
 
+# ---- Windows: the process table through kernel32 (no process started) ----------------
+
+_TH32CS_SNAPPROCESS = 0x2
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_STILL_ACTIVE = 259
+
+
+def _kernel32():
+    """kernel32 with the signatures used here (Windows only)."""
+    import ctypes
+    from ctypes import wintypes
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [
+            ("dwSize", wintypes.DWORD),
+            ("cntUsage", wintypes.DWORD),
+            ("th32ProcessID", wintypes.DWORD),
+            ("th32DefaultHeapID", ctypes.c_size_t),
+            ("th32ModuleID", wintypes.DWORD),
+            ("cntThreads", wintypes.DWORD),
+            ("th32ParentProcessID", wintypes.DWORD),
+            ("pcPriClassBase", ctypes.c_long),
+            ("dwFlags", wintypes.DWORD),
+            ("szExeFile", ctypes.c_wchar * 260),
+        ]
+
+    k = ctypes.WinDLL("kernel32", use_last_error=True)
+    k.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    for name in ("Process32FirstW", "Process32NextW"):
+        getattr(k, name).argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+        getattr(k, name).restype = wintypes.BOOL
+    k.OpenProcess.restype = wintypes.HANDLE
+    k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    k.GetProcessTimes.argtypes = [wintypes.HANDLE] + [
+        ctypes.POINTER(wintypes.FILETIME)
+    ] * 4
+    k.GetProcessTimes.restype = wintypes.BOOL
+    k.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    k.GetExitCodeProcess.restype = wintypes.BOOL
+    k.CloseHandle.argtypes = [wintypes.HANDLE]
+    return ctypes, wintypes, k, PROCESSENTRY32W
+
+
+def _windows_children_map() -> dict:
+    """Parent pid -> child pids, from one Toolhelp snapshot of the process table."""
+    ctypes, _wintypes, k, entry_type = _kernel32()
+    snap = k.CreateToolhelp32Snapshot(_TH32CS_SNAPPROCESS, 0)
+    if not snap or snap == ctypes.c_void_p(-1).value:  # INVALID_HANDLE_VALUE
+        return {}
+    tree: dict = {}
+    try:
+        entry = entry_type()
+        entry.dwSize = ctypes.sizeof(entry)
+        ok = k.Process32FirstW(snap, ctypes.byref(entry))
+        while ok:
+            if entry.th32ProcessID:
+                tree.setdefault(entry.th32ParentProcessID, []).append(
+                    entry.th32ProcessID
+                )
+            ok = k.Process32NextW(snap, ctypes.byref(entry))
+    finally:
+        k.CloseHandle(snap)
+    return tree
+
+
+def _windows_start_time(pid: int):
+    """Process creation time (100 ns ticks), or ``None`` if gone or not readable."""
+    ctypes, wintypes, k, _ = _kernel32()
+    handle = k.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+    if not handle:
+        return None
+    try:
+        code = wintypes.DWORD()
+        if (
+            k.GetExitCodeProcess(handle, ctypes.byref(code))
+            and code.value != _STILL_ACTIVE
+        ):
+            return None  # exited; someone still holds a handle to it
+        times = [wintypes.FILETIME() for _ in range(4)]
+        if not k.GetProcessTimes(handle, *(ctypes.byref(t) for t in times)):
+            return None
+        created = times[0]
+        return (created.dwHighDateTime << 32) | created.dwLowDateTime
+    finally:
+        k.CloseHandle(handle)
+
+
 def start_time(pid: int):
     """When process ``pid`` started, as an opaque value to compare, or ``None`` if unknown.
 
     Two readings are equal only for the same process, so a pid that now belongs to a
     later process can be told apart from the one first seen under it. Starts no
-    process: ``proc_pidinfo`` on macOS, ``/proc/<pid>/stat`` on Linux; ``None`` for a
-    process that is gone, and always ``None`` elsewhere.
+    process: ``proc_pidinfo`` on macOS, ``/proc/<pid>/stat`` on Linux,
+    ``GetProcessTimes`` on Windows; ``None`` for a process that is gone, and always
+    ``None`` elsewhere.
 
     >>> import os, sys
     >>> mine = start_time(os.getpid())
     >>> mine == start_time(os.getpid())
     True
-    >>> mine is not None or sys.platform not in ("darwin", "linux")
+    >>> mine is not None or sys.platform not in ("darwin", "linux", "win32")
     True
     """
     import sys
 
+    if os.name == "nt":
+        return _windows_start_time(pid)
     if sys.platform.startswith("linux"):
         try:
             with open(f"/proc/{int(pid)}/stat") as f:
@@ -206,11 +297,13 @@ def descendants(pid=None) -> list:
     """The live process ids below ``pid`` (default: this process), children first.
 
     Starts no process: ``proc_listchildpids`` on macOS, one scan of ``/proc`` on
-    Linux; an empty list elsewhere (Windows: ``taskkill /T`` follows the tree itself).
+    Linux, one Toolhelp snapshot on Windows; an empty list elsewhere. Windows keeps a
+    process's parent pid after the parent exits, and reuses pids, so there a process
+    created before its recorded parent is not counted as its child.
 
     >>> import subprocess, sys
     >>> child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(5)"])
-    >>> sys.platform not in ("darwin", "linux") or child.pid in descendants()
+    >>> sys.platform not in ("darwin", "linux", "win32") or child.pid in descendants()
     True
     >>> child.kill(); _ = child.wait()
     """
@@ -224,6 +317,22 @@ def descendants(pid=None) -> list:
     elif sys.platform.startswith("linux"):
         tree = _linux_children_map()
         children = lambda p: tree.get(p, [])  # noqa: E731
+    elif os.name == "nt":
+        tree = _windows_children_map()
+
+        def children(p):
+            # A recorded parent pid may now be another process: keep only children
+            # created after it (pid reuse), and none whose times cannot be read.
+            born = start_time(p)
+            if born is None:
+                return []
+            kids = []
+            for kid in tree.get(p, []):
+                kid_born = start_time(kid)
+                if kid != p and kid_born is not None and kid_born >= born:
+                    kids.append(kid)
+            return kids
+
     else:
         return []
     found, frontier = [], [pid]
@@ -342,6 +451,24 @@ def _kill_trees(roots) -> None:
         _signal_tree(everything, signal.SIGKILL, own_group=own)
 
 
+def _kill_survivors(pids) -> None:
+    """Kill ``pids`` and what they started: groups on POSIX, ``taskkill /T`` on Windows."""
+    if os.name != "nt":
+        _kill_trees(pids)
+        return
+    from subprocess import DEVNULL, call
+
+    for pid in pids:
+        try:
+            call(
+                ["taskkill", "/F", "/T", "/PID", str(pid)],
+                stdout=DEVNULL,
+                stderr=DEVNULL,
+            )
+        except OSError:
+            pass
+
+
 def wait_and_reap(process, *, timeout=None, interval=0.25):
     """Wait for ``process`` to exit, then kill whatever it started that outlived it.
 
@@ -364,8 +491,9 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
     Limits: a descendant that starts and is orphaned within one ``interval`` is not
     seen (only its group, if it stayed in ``process``'s); a process whose start time
     cannot be read (another user's: one started through ``sudo``, say) is never killed
-    as a survivor. On Windows the tree is not read (:func:`descendants` is empty
-    there), so only ``taskkill /T`` on timeout or interruption applies.
+    as a survivor. On Windows the tree is read from the process table and survivors
+    are killed with ``taskkill /T``; there is no process group to reach orphans the
+    watcher never saw.
 
     >>> import subprocess, sys
     >>> child = subprocess.Popen([sys.executable, "-c", "pass"], **NEW_PROCESS_GROUP)
@@ -394,18 +522,15 @@ def wait_and_reap(process, *, timeout=None, interval=0.25):
             if stop.wait(interval):
                 return
 
-    watcher = None
-    if os.name != "nt":  # descendants() reads nothing there
-        watcher = threading.Thread(target=watch, name="wait_and_reap", daemon=True)
-        watcher.start()
+    watcher = threading.Thread(target=watch, name="wait_and_reap", daemon=True)
+    watcher.start()
 
     def reap():
         stop.set()
-        if watcher is not None:
-            watcher.join()
-            survivors = [pid for pid, started in seen if start_time(pid) == started]
-            if survivors:
-                _kill_trees(survivors)
+        watcher.join()
+        survivors = [pid for pid, started in seen if start_time(pid) == started]
+        if survivors:
+            _kill_survivors(survivors)
         kill_process_tree(process)  # orphans in its group; ``process`` if still alive
 
     try:
