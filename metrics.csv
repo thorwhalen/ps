@@ -1,6 +1,6 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-22T14:02:57.759690Z
+timestamp,2026-11-22T14:03:01.177053Z
 commit_sha,fb4760c849231ee4a19c45aa1be7896699c25594
 commit_message,"Windows reaping: review fixes
 
@@ -12,18 +12,18 @@ commit_message,"Windows reaping: review fixes
 - Windows test: gone means a different start time (pids are reused
   quickly); the worker's start time is read while it runs."
 python_version,3.10
-metrics.umpyre_stats.num_functions,4882
-metrics.umpyre_stats.num_classes,1328
-metrics.umpyre_stats.total_lines,211265
-metrics.umpyre_stats.empty_lines,24254
-metrics.umpyre_stats.comment_lines,11309
-metrics.umpyre_stats.docs_lines,16395
-metrics.umpyre_stats.function_lines,78281
-metrics.umpyre_stats.empty_lines_ratio,0.1148036825787518
-metrics.umpyre_stats.comment_lines_ratio,0.05352992686909805
-metrics.umpyre_stats.function_lines_ratio,0.37053463659385133
-metrics.umpyre_stats.mean_lines_per_function,16.034616960262188
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4580
+metrics.umpyre_stats.num_classes,1267
+metrics.umpyre_stats.total_lines,204962
+metrics.umpyre_stats.empty_lines,23210
+metrics.umpyre_stats.comment_lines,10899
+metrics.umpyre_stats.docs_lines,15475
+metrics.umpyre_stats.function_lines,73878
+metrics.umpyre_stats.empty_lines_ratio,0.11324050311765108
+metrics.umpyre_stats.comment_lines_ratio,0.05317571061952947
+metrics.umpyre_stats.function_lines_ratio,0.3604473024267913
+metrics.umpyre_stats.mean_lines_per_function,16.13056768558952
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.22
 metrics.workflow_status.last_run_status,success
 metrics.workflow_status.last_success_timestamp,2026-11-22T13:50:12Z
@@ -44,4 +44,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.87912917137146
+collection_duration_seconds,2.9973318576812744
