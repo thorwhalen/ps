@@ -1,28 +1,8 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-22T14:05:10.820741Z
-commit_sha,88407fe6dab0c18d5e0c0594d725aa92ee3fc663
-commit_message,"wait_and_reap on Windows: read the tree, kill the survivors (#26)
-
-* wait_and_reap on Windows: read the tree, kill the survivors
-
-descendants() reads the Windows process table (one Toolhelp snapshot;
-a child created before its recorded parent is a recycled pid, not a
-child), start_time() uses GetProcessTimes (None once exited), and
-wait_and_reap watches the tree on Windows too and kills survivors with
-taskkill /T. Windows-only tests in tests/test_windows_tree.py.
-
-Closes #25
-
-* Windows reaping: review fixes
-
-- _kernel32 built once (lru_cache): a ctypes struct per call grew the
-  pointer-type cache without bound (~1 GB/hour under the watcher).
-- descendants visits each pid once (recorded parents can cycle).
-- Survivors are terminated by handle after their start time is checked
-  on that handle; no taskkill /T, which follows recycled parent pids.
-- Windows test: gone means a different start time (pids are reused
-  quickly); the worker's start time is read while it runs."
+timestamp,2026-11-23T07:26:49.066545Z
+commit_sha,9b3efa96f3165846299aee4d21f83fb0a22705f5
+commit_message,"docs(readme): install block, unwrapped, state-dependent blocks skip"
 python_version,3.10
 metrics.umpyre_stats.num_functions,4580
 metrics.umpyre_stats.num_classes,1267
@@ -36,11 +16,11 @@ metrics.umpyre_stats.comment_lines_ratio,0.05317571061952947
 metrics.umpyre_stats.function_lines_ratio,0.3604473024267913
 metrics.umpyre_stats.mean_lines_per_function,16.13056768558952
 metrics.umpyre_stats.files_analyzed,522
-metrics.umpyre_stats.pypi_version,0.1.22
-metrics.workflow_status.last_run_status,failure
-metrics.workflow_status.last_success_timestamp,2026-11-22T14:03:18Z
+metrics.umpyre_stats.pypi_version,0.1.23
+metrics.workflow_status.last_run_status,success
+metrics.workflow_status.last_success_timestamp,2026-11-22T14:06:25Z
 metrics.workflow_status.recent_failure_count,3
-metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/45030745724
+metrics.workflow_status.run_url,https://github.com/thorwhalen/ps/actions/runs/45030928558
 metrics.workflow_status.total_runs_analyzed,10
 metrics.wily.cyclomatic_avg,0.0
 metrics.wily.maintainability_index,0.0
@@ -56,4 +36,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.939544200897217
+collection_duration_seconds,2.493987560272217
