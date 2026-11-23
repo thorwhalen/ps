@@ -1,7 +1,7 @@
 {
-  "collection_duration_seconds": 3.325505495071411,
-  "commit_message": "Merge 9b3efa96f3165846299aee4d21f83fb0a22705f5 into 39313208c7215baf517b77a95fbda7eb688ff621",
-  "commit_sha": "bc91d52ed093ca0378606bd692d9905ea7fce8c7",
+  "collection_duration_seconds": 2.399249792098999,
+  "commit_message": "docs(readme): install block, unwrapped, state-dependent blocks skip (#27)",
+  "commit_sha": "c2e4fc9e0dc9bf598b38bf434367c833c98ce5fe",
   "metrics": {
     "coverage": {
       "branch_coverage": 0.0,
@@ -11,19 +11,19 @@
       "statements_total": 0
     },
     "umpyre_stats": {
-      "comment_lines": 10899,
-      "comment_lines_ratio": 0.05317571061952947,
-      "docs_lines": 15475,
-      "empty_lines": 23210,
-      "empty_lines_ratio": 0.11324050311765108,
-      "files_analyzed": 522,
-      "function_lines": 73878,
-      "function_lines_ratio": 0.3604473024267913,
-      "mean_lines_per_function": 16.13056768558952,
-      "num_classes": 1267,
-      "num_functions": 4580,
+      "comment_lines": 11309,
+      "comment_lines_ratio": 0.05352992686909805,
+      "docs_lines": 16395,
+      "empty_lines": 24254,
+      "empty_lines_ratio": 0.1148036825787518,
+      "files_analyzed": 533,
+      "function_lines": 78281,
+      "function_lines_ratio": 0.37053463659385133,
+      "mean_lines_per_function": 16.034616960262188,
+      "num_classes": 1328,
+      "num_functions": 4882,
       "pypi_version": "0.1.23",
-      "total_lines": 204962
+      "total_lines": 211265
     },
     "wily": {
       "cyclomatic_avg": 0.0,
@@ -33,15 +33,15 @@
       "total_loc": 0
     },
     "workflow_status": {
-      "last_run_status": "success",
-      "last_success_timestamp": "2026-11-23T07:26:56Z",
-      "recent_failure_count": 2,
-      "run_url": "https://github.com/thorwhalen/ps/actions/runs/45130995746",
+      "last_run_status": "failure",
+      "last_success_timestamp": "2026-11-23T07:27:08Z",
+      "recent_failure_count": 3,
+      "run_url": "https://github.com/thorwhalen/ps/actions/runs/45131259061",
       "total_runs_analyzed": 10
     }
   },
   "python_version": "3.10",
   "schema_version": "1.0",
-  "timestamp": "2026-11-23T07:27:03.775754Z",
+  "timestamp": "2026-11-23T07:29:02.135350Z",
   "workflow_status": {}
 }
