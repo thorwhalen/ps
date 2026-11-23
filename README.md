@@ -1,16 +1,15 @@
 # ps
 Call any available system command from python
 
-To install:	```pip install ps```
+```bash
+pip install ps
+```
 
-Note: The package is aspires to be platform-independent but has 
-only been tested with unix-flavored systems.
+Note: The package is aspires to be platform-independent but has only been tested with unix-flavored systems.
 
 # Quick Start
 
-`Commands()` will gather all available commands it can find
-(searching through the same `PATH` environment variable that your system does)
-and makes them available for execution. 
+`Commands()` will gather all available commands it can find (searching through the same `PATH` environment variable that your system does) and makes them available for execution.
 
 ```
 >>> from ps import Commands
@@ -25,6 +24,7 @@ drwxr-xr-x@  17 Thor.Whalen  staff        544 Mar  8  2022 ..
 ```
 
 A `Commands` instance is also a `Mapping`, so you can do things like:
+<!-- wads-docs: skip depends on reader state or machine-specific output -->
 ```python
 len(c)
 # 3097
@@ -62,12 +62,9 @@ Or just get the help string like so:
 
 # More control
 
-`Commands` is just a collection of `Command` instances, which itself is 
-just a callable that will run a shell script with you, in a manner 
-specified by the `run` function. 
+`Commands` is just a collection of `Command` instances, which itself is just a callable that will run a shell script with you, in a manner specified by the `run` function.
 
-So let's have a quick look at those three objects to understand 
-better what powers we have at our disposal.
+So let's have a quick look at those three objects to understand better what powers we have at our disposal.
 
 ## run
 
@@ -75,31 +72,22 @@ A parametrizable way to run shell commands.
 
 Works somewhat like the [subprocess.run](
 <https://docs.python.org/3/library/subprocess.html#subprocess.run>) function.
-but with different defaults, as well as the additional arguments `on_error` and
-`egress`.
+but with different defaults, as well as the additional arguments `on_error` and `egress`.
 
     >>> output = run('pwd')
     >>> os.path.isdir(output)  # verify that output is indeed a valid directory path
     True
 
-Also very important difference with ``subprocess.run``:
-You don't specify a LIST of tokenized arguments here:
-You can specify the full (string) command or parts of it as a sequence of strings:
+Also very important difference with ``subprocess.run``: You don't specify a LIST of tokenized arguments here: You can specify the full (string) command or parts of it as a sequence of strings:
 
     >>> assert run('echo hello world') == run('echo', 'hello', 'world') == b'hello world'
 
-Note that ``run`` will return ``bytes`` of the output, stripped of extremal
-newlines. The argument that does the stripping is ``egress``.
-You can use this argument to do something else with the output.
-For example, if you want to to cast the output to a ``str``, strip it, then
-print it, you could specify this in the ``egress``:
+Note that ``run`` will return ``bytes`` of the output, stripped of extremal newlines. The argument that does the stripping is ``egress``. You can use this argument to do something else with the output. For example, if you want to to cast the output to a ``str``, strip it, then print it, you could specify this in the ``egress``:
 
     >>> run('echo hello world', egress=lambda x: print(x.decode().strip()))
     hello world
 
-``run``'s purpose in life is designed to be curried.
-That is, you can use ``functools.partial`` to make your own specialized
-functions that use shell scripts as their backend.
+``run``'s purpose in life is designed to be curried. That is, you can use ``functools.partial`` to make your own specialized functions that use shell scripts as their backend.
 
     >>> from functools import partial
     >>> stripped_str = lambda x: x.decode().strip()
@@ -119,19 +107,11 @@ functions that use shell scripts as their backend.
 
 ## Command
 
-A `Command` runs a specific shell script for you in a specific manner. 
-The `run` function is the general function to do that, and we saw 
-that you can curry `run` to specify what and how to run.
-`Command` just wraps such a curried `run` function
-(or any compliant run function you provide),
-and specifies what executable (the `command` argument) to actually run.
+A `Command` runs a specific shell script for you in a specific manner. The `run` function is the general function to do that, and we saw that you can curry `run` to specify what and how to run. `Command` just wraps such a curried `run` function (or any compliant run function you provide), and specifies what executable (the `command` argument) to actually run.
 
-So not much over a curried `run`. 
+So not much over a curried `run`.
 
-But what it does do as well is set up the ability to do other things 
-that may be specific to the executable you're running, such as 
-giving your (callable) command instance a signature, some docs, or 
-a help method. 
+But what it does do as well is set up the ability to do other things that may be specific to the executable you're running, such as giving your (callable) command instance a signature, some docs, or a help method.
 
     >>> import os
     >>> pwd = Command('pwd')
@@ -153,12 +133,7 @@ a help method.
 
 A collection of commands.
 
-The general usage is that you can specify a mapping between valid python identifiers
-(alphanumerical strings (and underscores) that don't start with a number) and
-functions. If instead of functions you specify a string, a ``factory`` comes
-in play to make a function based on your string.
-By default, it will consider it as a console command and give you a function that
-runs it.
+The general usage is that you can specify a mapping between valid python identifiers (alphanumerical strings (and underscores) that don't start with a number) and functions. If instead of functions you specify a string, a ``factory`` comes in play to make a function based on your string. By default, it will consider it as a console command and give you a function that runs it.
 
     >>> import os
     >>>
@@ -183,12 +158,9 @@ runs it.
     >>> c.echo('hello world')
     hello world
 
-If you don't specify any commands, it will gather all executable names it can find in
-your local system (according to your ``PATH`` environment variable),
-map those to valid python identifiers if needed, and use that.
+If you don't specify any commands, it will gather all executable names it can find in your local system (according to your ``PATH`` environment variable), map those to valid python identifiers if needed, and use that.
 
-Important: Note that finding executable in the ``PATH`` doesn't mean that it will
-work, or is safe -- so use with care!
+Important: Note that finding executable in the ``PATH`` doesn't mean that it will work, or is safe -- so use with care!
 
     >>> c = Commands()
     >>> assert len(c) > 0
@@ -214,18 +186,11 @@ Let's see what the output of ``ls`` gives us:
     >>> assert 'total' in output  # "ls -l" output usually starts with "total"
     >>> assert '..' in output  # the "-a" flag includes '..' as a file
 
-Note that we needed to decode the output here.
-That's because by default the output of a command will be captured in bytes.
-If you want to apply a decoder to (attempt to) convert all outputs into strings,
-you can specify a ``factory`` that will do this for you automatically.
+Note that we needed to decode the output here. That's because by default the output of a command will be captured in bytes. If you want to apply a decoder to (attempt to) convert all outputs into strings, you can specify a ``factory`` that will do this for you automatically.
 
-The default ``factory`` is ``Command``, which  has a ``run``
-argument that defines how an instruction should be run. 
-The default of ``run`` is ``run_command``, which conveniently has an ``egress`` 
-argument where you can specify a function to call on the output. 
+The default ``factory`` is ``Command``, which  has a ``run`` argument that defines how an instruction should be run. The default of ``run`` is ``run_command``, which conveniently has an ``egress`` argument where you can specify a function to call on the output.
 
-So one solution to define a ``Commands`` instance that will (attempt to) output 
-strings systematically is to do this:
+So one solution to define a ``Commands`` instance that will (attempt to) output strings systematically is to do this:
 
     >>> from functools import partial
     >>> from ps.util import run
@@ -243,6 +208,7 @@ So now we have:
 
 When a library cannot share your environment (it pins its own torch, numpy or MLX), `ps.isolated` runs it in its own environment and talks to it, with the standard library only.
 
+<!-- wads-docs: skip depends on reader state or machine-specific output -->
 ```python
 from ps.isolated import EnvSpec, ensure_env, Worker
 
@@ -259,6 +225,7 @@ A worker stays alive between calls, keeps library output away from its JSON-line
 
 Code that is a git checkout rather than a package is pinned to one commit with `GitSource` (a full commit SHA): `ensure_git_source(source, path)` fetches only that commit, once, and checks it on every reuse (same commit, no edits to tracked files); `Runtime(..., source=source)` puts the pinned fetch in its install commands and refuses a root at another commit.
 
+<!-- wads-docs: skip depends on reader state or machine-specific output -->
 ```python
 from ps.isolated import GitSource, ensure_git_source
 
@@ -289,10 +256,7 @@ Workers also cope with an interpreter whose OpenSSL has no CA certificates (a Ma
 
 ## ps.misc.run_commands_in_dir
 
-A small utility to run one or more shell commands as if they were executed
-from a specific directory. The function spawns a fresh shell, prefixes the
-script with `set -e -o pipefail` so failures abort early, and returns a
-`subprocess.CompletedProcess` with `stdout`, `stderr`, and `returncode`.
+A small utility to run one or more shell commands as if they were executed from a specific directory. The function spawns a fresh shell, prefixes the script with `set -e -o pipefail` so failures abort early, and returns a `subprocess.CompletedProcess` with `stdout`, `stderr`, and `returncode`.
 
 Example:
 
@@ -305,8 +269,7 @@ assert "42" in cp.stdout
 ```
 
 Notes:
-- Raises `subprocess.CalledProcessError` if any command fails (check the
-    exception for `.stdout` and `.stderr`).
+- Raises `subprocess.CalledProcessError` if any command fails (check the exception for `.stdout` and `.stderr`).
 - You can provide `timeout`, `env`, and `shell_path` to customize behavior.
 
 
@@ -321,10 +284,7 @@ Notes:
 
 ## Auto docs
 
-Trying to figure out a robust way to get doc strings.
-Unfortunately, `man <command>` and `<command> --help` don't always exist,
-and the former isn't even always correct
-(i.e. linked to the same executable as what `which <command>` says)
+Trying to figure out a robust way to get doc strings. Unfortunately, `man <command>` and `<command> --help` don't always exist, and the former isn't even always correct (i.e. linked to the same executable as what `which <command>` says)
 
 See: https://stackoverflow.com/questions/73814043/universal-help-for-terminal-commands
 
