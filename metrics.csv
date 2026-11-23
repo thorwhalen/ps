@@ -1,21 +1,21 @@
 metric,value
 schema_version,1.0
-timestamp,2026-11-23T07:29:02.135350Z
+timestamp,2026-11-23T07:29:05.643483Z
 commit_sha,c2e4fc9e0dc9bf598b38bf434367c833c98ce5fe
 commit_message,"docs(readme): install block, unwrapped, state-dependent blocks skip (#27)"
 python_version,3.10
-metrics.umpyre_stats.num_functions,4882
-metrics.umpyre_stats.num_classes,1328
-metrics.umpyre_stats.total_lines,211265
-metrics.umpyre_stats.empty_lines,24254
-metrics.umpyre_stats.comment_lines,11309
-metrics.umpyre_stats.docs_lines,16395
-metrics.umpyre_stats.function_lines,78281
-metrics.umpyre_stats.empty_lines_ratio,0.1148036825787518
-metrics.umpyre_stats.comment_lines_ratio,0.05352992686909805
-metrics.umpyre_stats.function_lines_ratio,0.37053463659385133
-metrics.umpyre_stats.mean_lines_per_function,16.034616960262188
-metrics.umpyre_stats.files_analyzed,533
+metrics.umpyre_stats.num_functions,4580
+metrics.umpyre_stats.num_classes,1267
+metrics.umpyre_stats.total_lines,204962
+metrics.umpyre_stats.empty_lines,23210
+metrics.umpyre_stats.comment_lines,10899
+metrics.umpyre_stats.docs_lines,15475
+metrics.umpyre_stats.function_lines,73878
+metrics.umpyre_stats.empty_lines_ratio,0.11324050311765108
+metrics.umpyre_stats.comment_lines_ratio,0.05317571061952947
+metrics.umpyre_stats.function_lines_ratio,0.3604473024267913
+metrics.umpyre_stats.mean_lines_per_function,16.13056768558952
+metrics.umpyre_stats.files_analyzed,522
 metrics.umpyre_stats.pypi_version,0.1.23
 metrics.workflow_status.last_run_status,failure
 metrics.workflow_status.last_success_timestamp,2026-11-23T07:27:08Z
@@ -36,4 +36,4 @@ metrics.coverage.branch_coverage,0.0
 metrics.coverage.statements_covered,0
 metrics.coverage.statements_total,0
 metrics.coverage.error,No coverage file found
-collection_duration_seconds,2.399249792098999
+collection_duration_seconds,2.976783514022827
